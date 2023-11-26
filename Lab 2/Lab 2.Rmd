@@ -1,0 +1,98 @@
+---
+title: "Lab 2"
+author: "Kent Codding"
+date: "2023-09-07"
+output: word_document
+---
+# Read in Data
+```{r}
+setwd("C:/Users/Kent Codding/Desktop/Adv Biostat/Lab 2") #set wd to source file location
+case.data <- read.csv("united_states_covid19_hospitalizations_deaths_and_ed_visits_by_state.csv", skip = 2, row.names = 1)
+vax.data <- read.csv("covid19_vaccinations_in_the_united_states.csv" , skip = 5, row.names = 1)
+```
+# Operation 1
+```{r}
+head(case.data)
+```
+# keep certain names
+```{r}
+names(case.data) 
+case.data <- case.data[,c("Total.Deaths", "Death.Rate.per.100000.for.the.Past.3.Months", "Total.Death.rate.per.100000", "New.COVID.19.hospital.admissions.per.100000.population.past.week..total.")] 
+head(case.data)
+```
+
+# Operation 2
+```{r}
+names(vax.data) 
+vax.data <- vax.data[,c("Percent.of.total.pop.with.at.least.one.dose", "Percent.of.total.pop.with.a.completed.primary.series")] 
+head(vax.data)
+```
+# Merge the data
+```{r}
+state.name[!(state.name %in% rownames(case.data))]
+
+```
+# Operation 3
+```{r}
+state.name[!(state.name %in% rownames(vax.data))]
+rownames(vax.data)
+```
+
+# Question 1
+  at index 44 in the output from rownames(vax.data) above, New York is listed as "New York State." Thus, this line of code -  state.name[!(state.name %in% rownames(vax.data))]
+ - that checks for state names where the state name Character Object is NOT in the rownames of vax data will return "New York" because R reads "New York State" as a different character object than "New York."
+ 
+# Question 4
+```{r}
+rownames(vax.data)[44] <- "New York"
+row.names(vax.data)
+```
+
+# Operation 5
+```{r}
+all.data <- merge(vax.data, case.data, by = 0) #merges vax.data and case.data by row
+
+```
+
+# Operation 6
+```{r}
+all.data <- data.frame(all.data, row.names = all.data$Row.names) #removes numerical row names (indices) and replaces with state names 
+all.data <- all.data[,-1] #gets rid of first column that contained redundant row names
+rownames(all.data)
+```
+
+# Operation 7
+```{r}
+library(magrittr) # load magrittr for pipe operator
+subset(all.data, row.names(all.data) %in% state.name) %>% row.names() #check if this subset command only includes 50 states as rownames
+all.data <- subset(all.data, row.names(all.data) %in% state.name) #get rid of territories
+names(all.data) <- c("perc_one_dose","perc_fully_vax",
+                     "total_deaths","death_rate_3_months",
+                     "total_death_rate","new_case_rate_this_week") #make better column names
+```
+# Operation 8
+```{r}
+str(all.data)
+all.data <- data.frame(lapply(all.data, as.numeric),
+                       row.names = rownames(all.data))
+```
+
+# Question 2
+  R gave us the warning message "NAs introduced by coercion" because some character values like "Data not available" found in all.data cannot be converted to a number. Instead, R coerces these values to NAs.
+  
+# Read in usdata
+```{r}
+library(usdata)
+data(state_stats)
+state_stats <- data.frame(state_stats, row.names = 1)
+```
+# Operation 9
+```{r}
+all.data <- merge(all.data, state_stats, by = 0) #merges vax.data and case.data by row
+head(all.data)
+```
+## write to csv
+```{r}
+write.csv(all.data, file = "all_data.csv")
+```
+

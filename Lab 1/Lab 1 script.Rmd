@@ -1,0 +1,7 @@
+---
+title: "Lab 1"
+author: "Kent Codding"
+date: "2023-08-31"
+output: word_document
+---
+

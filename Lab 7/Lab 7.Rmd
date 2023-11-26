@@ -1,0 +1,129 @@
+---
+title: "Lab 7"
+author: "Kent Codding"
+date: "2023-10-27"
+output: word_document
+---
+
+#read in BACS data
+```{r}
+
+df <- read.csv("BACS(1).csv")
+```
+
+# Step 1
+```{r}
+mod.pois <- glm(df$BACS ~ df$years_since_burn +
+df$area_small_pines +
+df$hardwood_cov_perc  
+  , family = "poisson")
+summary(mod.pois)
+```
+numerically, residual deviance / df > 1.5, which provides evidence of overdispersion
+
+## visualization 
+
+```{r}
+plot(residuals.glm(mod.pois) ~ predict(mod.pois))
+abline(h = 2, col = "red")
+abline(h = -2, col = "red")
+```
+The variance changes within the range of predicted values, suggesting that the variance is not fixed. Therefore, overdispersion is present.
+
+# Step 2
+```{r}
+library(countreg)
+mod.ZIP <- countreg::zeroinfl(
+    BACS ~ years_since_burn + area_small_pines + hardwood_cov_perc | #count 
+    Shrub, #binomial
+  data = df, dist = "poisson")
+summary(mod.ZIP)
+
+par(mfrow = c(2,1))
+
+rootogram(mod.pois, style = "standing")
+rootogram(mod.ZIP, style = "standing")
+
+```
+The ZIP model does a much better job than the Poisson model at predicting the zeros within the observed data. Thus, the ZIP model is more appropriate.
+
+# Step 3a
+
+```{r}
+mod.ZINB <- countreg::zeroinfl(BACS ~
+    years_since_burn + area_small_pines + hardwood_cov_perc | #count 
+    Shrub, # binomial
+  data = df, 
+  dist = "negbin" )
+summary(mod.ZINB)
+
+par(mfrow = c(2,1))
+
+rootogram(mod.ZIP, style = "standing")
+rootogram(mod.ZINB, style = "standing")
+
+```
+Graphically, the ZINB does a better job of predicting the lower, nonzero observed values than the ZIP model due to the presence of an additional parameter to address overdispersion. Numerically, the Log-likelihood is higher and the years_since_burn predictor has an additional level of significance in the count portion of the model for the ZINB. 
+
+# Step 4
+## drop area_small_pines from count model
+```{r}
+mod.ZINB2 <- countreg::zeroinfl(BACS ~
+    years_since_burn + hardwood_cov_perc | #count 
+    Shrub, # binomial
+  data = df, 
+  dist = "negbin" )
+
+library(lmtest)
+lrtest(mod.ZINB, mod.ZINB2)
+
+summary(mod.ZINB2)
+```
+
+having area_small_pines in the model does not significantly improve the model, so it should be dropped: mod.ZINB2 is the better model. 
+
+The coefficient for shrub is positive and significant within the binomial portion of the model, so shrub increases the probability of false zeros.
+
+For the counts of BACS, only years_since_burn and hardwood_cov_perc significantly affect the counts of BACS.
+
+# Question 4
+
+```{r}
+#first make new data set holding all the coviariates constant
+
+ND.Shrub <- expand.grid(list(Shrub = 0:100, 
+                             years_since_burn = median(df$years_since_burn),
+                              hardwood_cov_perc  = median(df$hardwood_cov_perc)))
+
+#plot raw data
+plot(predict(mod.ZINB2, type = "zero") ~ df$Shrub,
+     ylab = "probability of excess zeros")
+  
+#draw fit line using dummy data set
+lines(ND.Shrub$Shrub, 
+        predict(mod.ZINB2, type = "zero", newdata = ND.Shrub),
+        lwd = 1.5, col = "darkred")
+```
+# Question 5
+
+```{r}
+library(pscl)
+mod.ZANB <- hurdle(BACS ~
+    years_since_burn + hardwood_cov_perc | #count 
+    Shrub, # binomial
+  data = df, 
+  dist = "negbin" )
+summary(mod.ZANB)
+summary(mod.ZINB2)
+```
+## similarities and differences
+
+Both the ZINB and ZANB recognize Shrub as a significant predictor and have a similar log likelihood, although the ZINB's log likelihood is slightly higher. However, the ZINB recognizes both years_since_burn and hardwood_cov_perc as significant predictors but the ZANB recognized hardwood_cov_perc as less significant and did not recognize years_since_burn as any level of significance within the count portion of the model. 
+
+## Interpretation
+
+When interpreting the data, the ZINB suggests that both the count process and the process of shrubs obstructing bird observers contributed to zeros. On the other hand, the ZANB suggests that only the shrubs contributed to zeros within the data. 
+
+## final decision
+
+Given that it is possible for a sparrow to not be present, I believe that the ZINB is more appropriate for these data as the count process could definitely explain at least some zeros. Additionally, the study comparing the zero-inflated and zero-affected models by Dr. Feng recommends that zero-inflated models are better to use when covariates are continuous, and in this case, all covariates are continuous.

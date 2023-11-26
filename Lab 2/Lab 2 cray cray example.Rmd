@@ -1,0 +1,293 @@
+---
+title: "Example for Lab 2"
+author: "prof skelton"
+date: "2023-09-07"
+output: html_document
+---
+# Setting up your working directory
+
+Make a folder somewhere on your computer for this example and save the following files from blackboard in that folder:
+
+* crayfish_data.csv
+* worm_counts.csv
+* Lab 2 cray cray example.Rmd
+
+You can set the working directory (wd) with this line of code:
+
+* make sure you replace the file path below with the one for the folder where you saved the files listed above and change the slashes.
+
+```{r}
+setwd("C:/Users/jeskelton/Dropbox/William_Mary/Teaching/classes/FALL_2023/Adv_Biostat/Assignments/Lab 2 Data mgmt/cray cray example")
+#note direction of the "/"
+```
+
+Or, you can use R studio GUI to set the working directory
+
+* Session tab--> set working directory --> choose directory
+
+# Load the data!!
+
+We will use the function read.csv() to load the data from your wd into the R environment and give each data frame a name.
+
+```{r}
+cray_data <- read.csv(file = "crayfish_data.csv", skip = 2, row.names = 1)
+worm_counts <- read.csv(file = "worm_counts.csv", skip = 2, row.names = 1)
+```
+
+NOTICE! The "skip = 2" argument tells R to ignore the first 2 rows of data. Open the data in excel to see why we did this.
+
+NOTICE! "row.names = 1" tells R to make the first column of data the names of the rows in our dataframe. The first column is the unique ID for each crayfish in both datasets. Why would we do this?
+
+Because the dataframe object can check and make sure no duplicates exist in the dataset
+
+# Look at the data
+
+Now we will use R-studio to look at the data frames by clicking on them
+in the upper right panel, under the "Environment" tab:
+
+YIKES! How embarrassing!!! Obviously someone mislabeled C_philadelphicus as "C_philadelphica". Yuck.
+
+# Cleaning the data :)
+
+Let us fix that name! Get the position index for the misspelled name using:
+
+```{r}
+names(worm_counts)
+```
+
+Okay its index position [1], i.e. the first variable in the worm_counts dataframe. Now lets change it to the correct name (obviously) and check our work:
+
+```{r}
+names(worm_counts)[1] <- "C_philadelphicus" #names references columns of df
+names(worm_counts)
+```
+
+Here is another way to change the name without having to find the index:
+
+```{r}
+names(worm_counts)[names(worm_counts) == "C_philadelphica"] <- "C_philadelphicus"
+
+```
+
+* The above R code translates to "the names in worm counts *where* the name is "C_philadelphica" is now "C_philadelphicus"".
+
+Pretend that we only want to keep some of the variables in cray_data for our analysis. To keep things tidy, let's subset craydata, keeping only the variables we want which are:
+ 
+* STREAM
+* SPEC
+* SEX
+* LENGTH
+* MASS
+
+There are many ways to do this. One way is to look at the index positions (the number in [ , ]) for each variable name and then subset cray_data and re-save it as the subset
+
+REMEMBER: indexing a matrix or df goes [row#,column#]
+
+```{r}
+names(cray_data)
+#cray_data <- cray_data[,4:8]
+```
+
+Here are a few other ways to do the same thing
+```{r}
+#cray_data <- cray_data[,c(4,5,6,7,8)]
+#cray_data <- cray_data[,-c(1,2,3)] # - sign means except
+```
+
+PRO TIP!
+  
+  Calling the variables by name is more typing, but may be the preferred method. 
+
+* Why???
+
+```{r}
+cray_data <- cray_data[,c("STREAM", "SPEC", "SEX", "LENGTH", "MASS")] #in case more columns added to data later, saves headache
+```
+
+# Merging the two data frames
+
+To keep things tidy and check that we have all of our data correctly organized, we may want to merge the two data frames based on a shared variable.
+
+Both of these data frames contain data about individual crayfish. In fact, they contain different data about the SAME crayfish. Therefore, we can merge all the data by individual crayfish. 
+
+Each crayfish has a unique ID. It is the name of each row in both dataframes. To merge the data successfully, we need the rownames of each dataset (i.e. the crayfish IDS) to match perfectly. They do not need to be in the same order, but they DO need to be identical in terms of spelling, capitalization, etc.
+
+We can check that the crayfish ID's (our row names) match and are in the same order by doing this:
+
+```{r}
+rownames(cray_data) == rownames(worm_counts)
+```
+Nope!
+
+Lets see if the same IDs even occur in both data frames.First, we'll ask R which rownames in cray_data are also in worm_counts
+
+```{r}
+rownames(cray_data) %in% rownames(worm_counts)
+```
+
+Looks like 12 of 14 crayfish IDs in crayfish data are found in worm data. 
+Look at the size of the dataframes in the Env. panel. 
+Something seems amiss, no?
+
+Lets find out who is missing. Use ! (not) operator to get logical opposite of %in%
+
+* i.e. ask R what is "not in"
+
+```{r}
+#hey R, for each row name in cray_data, which are not in worm_counts?
+cray_not_in_worm <- !(rownames(cray_data) %in% rownames(worm_counts))
+```
+
+Now use [ ]'s to tell R "give me the rownames of cray_data that do not appear in the rownames of worm_counts.
+
+```{r}
+rownames(cray_data)[cray_not_in_worm]
+```
+
+
+Check by looking at the dataframes in R studio to verify that this is correct.
+
+* why didn't they match up???
+
+# Correcting more mistakes...
+
+First, find the index of the row name in worm_counts with a typo, then fix it:
+```{r}
+rownames(worm_counts)
+rownames(worm_counts)[5] <- "MAGN_1_3B"
+```
+
+#check that it is fixed by re-running lines of code from above
+```{r}
+cray_not_in_worm <- !(rownames(cray_data) %in% rownames(worm_counts))
+rownames(cray_data)[cray_not_in_worm]
+```
+Great! Now we will use the merge function to combine the two dataframes.
+
+```{r}
+all_data <- merge(cray_data, worm_counts, by = 0)
+```
+
+NOTICE! the argument "by = 0" tells R to merge the dataframes by rownames!!!
+
+
+Now look at the new data frame.Notice that the merge function dropped the rownames and moved them to the first column.
+
+```{r}
+head(all_data)
+```
+ 
+This is fixed by:
+
+```{r}
+all_data <- data.frame(all_data, row.names = 1)
+
+#check it
+head(all_data)
+```
+
+
+
+# More dirty data? Clean it up!
+
+Let's look at the data structure for our new combined dataframe uing the "str" command
+
+```{r}
+str(all_data)
+```
+
+Uh oh, length should be numeric, right?
+Lets fix the lengths. Look just at the variable LENGTH
+
+```{r}
+all_data$LENGTH
+class(all_data$LENGTH)
+```
+
+This misclassifications will be a problem if we want to use it as a numeric variable. For example, what if we want to calculate the average length of our crayfish?
+
+```{r, error = TRUE}
+mean(all_data$LENGTH)
+```
+We can force the variable to be numeric
+
+```{r}
+class(all_data$LENGTH) <- "numeric"
+```
+
+Now we'll try getting the average, again...
+```{r}
+mean(all_data$LENGTH)
+```
+AGHH! There still something wrong, fml! Now what?
+
+
+Let's try telling R to ignore missing data (NA's) when calculating the mean.
+
+```{r}
+mean(na.omit(all_data$LENGTH))
+```
+
+PRO TIP! In that last bit, I have nested a command within a function. The "na.omit" command is nested within the "mean" function.You can nest functions in functions in functions, etc. Nesting functions and commands can be convenient, but don't let it get out of hand or your code will be unintelligible :) 
+
+We can use "na.omit" to clean the entire dataframe, but beware that it will discard ALL DATA for any observation with an NA (i.e. it deletes the entire row)
+
+This will make a new dataframe with all NA's removed
+
+```{r}
+all_data_noNA <- na.omit(all_data)
+```
+
+NOTICE! Now we only have 11  of the 13 original rows, and all data for 2 crayfish are gone.
+
+# Even more fun with subsetting :D
+
+We often only want part of the data. Imagine we only cared about adult crayfish. We could use the "subset" function to only look at crayfish longer than 32 mm LENGTH:
+
+```{r}
+subset(all_data_noNA, LENGTH > 32)
+```
+
+Here is another way to do the same thing using indexing:
+
+```{r}
+all_data_noNA[all_dat_noNA$LENGTH > 32,]
+```
+  
+
+Now we'll only show crayfish between 32 and 36 mm:
+
+```{r}
+subset(all_data_noNA, LENGTH > 32 & LENGTH < 36)
+```
+
+Now only females:
+
+```{r}
+subset(all_data_noNA, SEX == "F")
+```
+
+What if we wanted all males (note there are two male type M1, and M2)????
+
+
+
+```{r}
+subset(all_data_noNA, SEX != "F") #not female (! = not operator)
+subset(all_data_noNA, SEX == "M1" | SEX == "M2") #m1 or m2 (| = or operator)
+```
+
+# Saving your cleaned and merged data
+
+Now that you've cleanup up the data, you can save it as a new CSV file that will be saved in your working directory:
+
+```{r}
+write.csv(all_data_noNA, file = "combined_cray_worm_data.csv")
+
+#Clear your R environment by:
+rm(list = ls())
+#or use the R-studio GUI
+```
+
+-done!
+
+

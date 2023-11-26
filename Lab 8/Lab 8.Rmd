@@ -1,0 +1,151 @@
+---
+title: "Lab 8"
+author: "Kent Codding"
+date: "2023-11-10"
+output: word_document
+---
+# install dependencies
+```{r}
+library(glmmTMB)
+library(performance)
+library(magrittr)
+```
+
+
+# Step 1
+```{r}
+df <- read.csv("RCW_nests.csv")
+```
+## remove observations
+```{r}
+cluster.counts <- table(df$Cluster)
+viable.clusters <- subset(cluster.counts, cluster.counts >= 5) #subset the table to only include clusters with 5 or more observations
+df <- subset(df, df$Cluster %in% names(viable.clusters)) #subset df to only include clusters within the subsetted table
+df <- subset(df, df$Adults != 6) #remove observations where 6 adults exist
+
+```
+
+# Step 2
+
+```{r}
+y <- cbind(df$hatched_eggs, df$failed_eggs)
+```
+## GLM 
+
+```{r}
+mod.glm <- glm(y ~ df$Constructor + df$Adults + df$Adults * df$Constructor + df$Year,
+      family = "binomial")
+summary(mod.glm)
+```
+
+## GLMM with random intercept for Cluster
+```{r}
+mod.glmm1 <- glmmTMB(y ~ df$Constructor + df$Adults + df$Adults * df$Constructor + df$Year + (1|df$Cluster), 
+              family = "binomial")
+summary(mod.glmm1)
+```
+## GLMM with random slope
+referring to the effect of number of adults on hatching within each cluster
+```{r}
+mod.glmm2 <- glmmTMB(y ~ df$Constructor + df$Adults + df$Adults * df$Constructor + df$Year +(df$Adults|df$Cluster), 
+              family = "binomial")
+summary(mod.glmm2)
+```
+
+## Compare with AIC
+```{r}
+AIC(mod.glm, mod.glmm1, mod.glmm2)
+```
+
+the lowest AIC for glmm1, the glmm with a random intercept for cluster, is the best model according to this test.
+
+# Step 3 
+##model selection on fixed terms
+```{r}
+summary(mod.glmm1)
+```
+
+```{r}
+drop1(mod.glmm1, test = "Chisq") %>% suppressWarnings() # make R shut up about warnings :]
+```
+### refit dropping the interaction between constructor and adults
+
+```{r}
+mod.2 <- glmmTMB(y ~ df$Constructor + df$Adults + df$Year + (1|df$Cluster), 
+              family = "binomial") %>% suppressWarnings()
+summary(mod.2)
+```
+```{r}
+drop1(mod.2, test = "Chisq") %>% suppressWarnings()
+```
+### refit dropping year
+```{r}
+mod.3 <- update(mod.2, .~. -df$Year) %>% suppressWarnings()
+summary(mod.3)
+```
+```{r}
+drop1(mod.3, test = "Chisq") %>% suppressWarnings()
+```
+### refit dropping constructor
+```{r}
+mod.4 <- update(mod.3, .~. -df$Constructor) %>% suppressWarnings()
+summary(mod.4)
+```
+### Final interpretation
+
+According to drop1 model selection with a chi square test, number of adults in the breeding group is the most important and only significant variable that determines the probability that an egg will successfully hatch. The positive sign for the estimate indicates that the number of Adults in the breeding group correlates with the number of eggs hatched, suggesting that more hands... or bird feet in this case... make for better work in regards to hatching chicks!
+
+# Step 4
+## overdispersion?
+```{r}
+check_overdispersion(mod.4) %>% suppressWarnings()
+```
+
+
+## nonindependence?
+```{r}
+plot(residuals(mod.4))
+```
+
+There is evidence of nonindependence based on the above plot of residuals
+
+## random effect normally distributed
+
+```{r}
+coefs <- coefficients(mod.4)
+plot(density(coefs$cond$`df$Cluster`$`(Intercept)`))
+```
+Visually, the random effects of the intercept are drawn from a normal distribution.
+
+## explained variance of hatching success
+
+```{r}
+r2_nakagawa(mod.4) %>% suppressWarnings()
+```
+only 2.5 percent of variance is explained by the entire model. Additionally, the fixed effects (marginal R2) only explain less than 1 percent of the variance. Thus, the random effects explain 0.025 - 0.007 = 0.018 of the variance.
+
+## Plot
+
+```{r}
+y.pred <- predict(mod.4, type = "response") #predict values as probability of hatching
+df$prob <- df$hatched_eggs/(df$hatched_eggs + df$failed_eggs) # add column to df to represent actual prob of hatching
+
+par(mfrow = c(1,2))
+boxplot(df$prob ~ df$Adults,
+        ylab = "Actual Probability of Hatching",
+        col = "blue",
+        main = "Actual")
+boxplot(y.pred ~ df$Adults,
+        ylab = "Predicted Probability of Hatching",
+        col = "firebrick",
+        main = "Model",
+        ylim = c(0,1))
+
+
+```
+
+
+# Step 5
+
+The data suggests that the type of Constructor (RCW vs Human) does not impact the number of hatchlings. Thus, managers should continue creating artificial, human-made cavity boxes in suitable trees. However, given limited resources, managers should focus on creating cavity boxes in suitable trees within areas already populated by large RCW families as the number of adults in each breeding group may affect the probability of eggs hatching.
+

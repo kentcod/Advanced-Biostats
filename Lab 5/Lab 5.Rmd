@@ -1,0 +1,176 @@
+---
+title: "Lab 5"
+author: "Kent Codding"
+date: "2023-10-05"
+output: word_document
+---
+
+```{r}
+library(MASS)
+library(lmtest)
+setwd("C:/Users/Kent Codding/Desktop/Adv Biostat/Lab 5")
+df <- read.csv("BACS.csv", row.names = 1)
+```
+
+# Question 1
+```{r}
+plot(df[-1]) #plots all potential explanatory variables (not including response var - BACS)
+```
+no obvious collinearity, but considering biologicical phenomena, it would make sense that hardwood cover percentage increases with years after burn. This also may confound with Burn_Season.
+```{r}
+# use pearson's r to check
+cor(df$hardwood_cov_perc, df$years_since_burn) #not collinear
+# cor(df$hardwood_cov_perc, df$Burn_Season) not numeric
+
+
+```
+My hypothesis was incorrect. The hardwood cover percentage does not correlate enough with years after burn for it to be an issue
+# Question 2
+justification for error distribution: since we are looking at count data, which is a poisson process, I will start with a poisson distribution to determine whether the residual deviance displays overdispersion.
+
+```{r}
+mod1p <- glm(BACS ~ ., data = df, family = "poisson") 
+summary(mod1p)
+```
+```{r}
+mod1p$deviance/mod1p$df.residual > 1.5 #if TRUE, then overdispersion is apparent
+```
+Yes, there is overdispersion :( now try negative binomial.
+```{r}
+mod1nb <- glm.nb(BACS ~ ., data = df) 
+summary(mod1nb)
+```
+
+```{r}
+mod1nb$deviance / mod1nb$df.residual
+lrtest(mod1p,mod1nb)
+
+```
+The residual deviance divided by degrees of freedom is much closer to 1. Now plot the residuals for each model. Log likelihood is also higher for the negative binomial model
+
+```{r}
+#poisson
+par(mfrow = c(1,2))
+plot(predict(mod1p),residuals.glm(mod1p), 
+     main = "poisson glm",
+     xlab = "predicted values",
+     ylab = "standardized deviance residuals")
+#ideally deviance residuals will fall between -2 and 2
+abline(h = c(2,-2), col = "coral")
+
+#now the NB model
+plot(predict(mod1nb),residuals.glm(mod1nb), main = "NB glm",
+     xlab = "predicted values",
+     ylab = "standardized deviance residuals")
+abline(h = c(2,-2), col = "coral")
+```
+Now that I have explored the residual distributions of the two models, I have selected the negative binomial model as it performed better on each of the three tests: deviance/degrees of freedom, log likelihood, and deviance falling between (mostly) +/- 2 for predicted values.
+
+# Question 3
+```{r}
+#drop 1 method
+drop1(mod1nb, test = "F")
+```
+
+```{r}
+mod2 <- glm.nb(BACS ~ area_large_pines + years_since_burn + Burn_Season + 
+    Stand_age + hardwood_cov_perc, data = df)
+summary(mod2)
+```
+```{r}
+drop1(mod2, test = "F")
+```
+```{r}
+mod3 <- glm.nb(BACS ~ years_since_burn +      Burn_Season + 
+    Stand_age + 
+    hardwood_cov_perc,
+    data = df)
+summary(mod3)
+```
+
+# Question 4
+
+calculate pseudo R-squared for GLM
+```{r}
+# residual deviance/ null deviance
+mod3$deviance / mod3$null.deviance
+```
+The final model is useful as the R^2 value is above 0.4, which is typically "good enough for ecology" even though the model is not perfect.
+
+Based on the z-scores, the two most significant predictors are hardwood_cover_perc and years_since_burn in that order. Moreover, both are negatively correlated, suggesting that Bachman's sparrows dislike luxurious, unburned forests with a high hardwood tree density and like less dense and more recently burned forests.
+
+# Question 5 - Crayfish!
+read in VT crayfish data
+```{r}
+cray <- read.csv("cray_groom.csv", row.names = 1)
+```
+
+visualize data
+```{r}
+plot(cray)
+```
+
+It looks like experimental design purposefully avoided collinearity among predictors. CL appears to correlate most with grooming based on this visualization.
+
+```{r}
+plot(cray$groomed ~ cray$cl) 
+```
+Evidently, the response variable only has two levels, so a binomial error distribution is most appropriate.
+```{r}
+cray.mod1 <- glm(groomed ~ sex + cl + worm_spp,
+                 data = cray,
+                 family = "binomial")
+summary(cray.mod1)
+```
+```{r}
+drop1(cray.mod1, test = "Chisq")
+```
+worm_spp has the least significant effect based on the Chi-squared test and the AIC, so worm_spp should be removed. This will remove the 3 levels displayed in the previous summary.
+
+```{r}
+cray.mod2 <- glm(groomed ~ sex + cl,
+                 data = cray,
+                 family = "binomial")
+summary(cray.mod2)
+```
+```{r}
+drop1(cray.mod2, test = "Chisq")
+
+```
+sex has an insignificant effect based on the Chi-squared test, Likelihood ratio test, and the AIC, so sex should be removed.
+
+## Final Model
+```{r}
+ultimate.cray.mod <- glm(groomed ~ cl,
+     data = cray,
+     family = "binomial")
+summary(ultimate.cray.mod)
+```
+
+## plot predictor and grooming response
+```{r}
+y_pred <- predict(ultimate.cray.mod, type = "response")
+plot(y_pred ~ cray$cl,
+     main = "Predicted grooming based on carapace length",
+     ylab = "Probability of Grooming Response",
+     pch = 21,
+     bg = "turquoise")
+```
+
+## for fun 
+I hypothesize that larger crayfish do not groom as much due to the previous relationship that we observed between carapace length and log number of worms. For instance, a larger crayfish is already expected to be free real estate for worms, so natural selection likely selected for larger crayfish that decided to gamble and let their body become a haven for worms of all kinds, *sometimes* living longer lives depending on if the large crayfish gets a royal flush with all mutualistic worms or a 2 and 7 off-suit with all parasitic worms.
+
+## more fun 
+```{r}
+plot(cray$groomed ~ cray$cl,
+     main = "Observed vs Predicted Grooming Based on Carapace Length",
+     ylab = "Probability of Grooming Response",
+     pch = 21,
+     bg = "firebrick1")
+lines(y_pred ~ cray$cl,
+      col = "turquoise")
+legend(35, 1, c("observed", "predicted"),
+       pch = 21,
+       pt.bg = c("firebrick1", "turquoise"))
+```
+

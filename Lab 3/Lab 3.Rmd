@@ -1,0 +1,243 @@
+---
+title: "Lab 3"
+author: "Kent Codding"
+date: "2023-09-14"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set up
+```{r}
+setwd("C:/Users/Kent Codding/Desktop/Adv Biostat")
+covid_df <- read.csv("Lab 2/all_data.csv")
+vote_df <- read.csv("Lab 3/vote.csv")
+```
+# clean data if necessary
+```{r}
+str(vote_df)
+str(covid_df)
+library(magrittr) # for pipe operator
+any(vote_df %>% is.na() == T) # checks if any NA values exist => none exist within DF
+any(covid_df %>% is.na() == T) # some exist within COVID DF
+indices = which(covid_df %>% is.na() == T) 
+covid_df[indices,] #can see all indices are indeed NA
+
+```
+
+# Load packages
+```{r}
+library(ggplot2)
+library(usmap)
+```
+## check if rownames match up in both dfs
+```{r}
+rownames(vote_df) == rownames(covid_df)
+```
+
+# Examine response variables
+
+**Question 1:**
+  Analyzing case rates reduces bias between states with high population and low population. For example, the most populated state, California, will almost undoubtedly have more cases than Wyoming, the least populated state. A better metric to compare would be the case rate: Covid deaths per 100,000 people. This metric tells us whether a person is more likely to die in California or Wyoming.
+
+## Graph it
+```{r}
+par(mfrow = c(1,2)) #mfrow set up like matrix c(numrows, numcols) to create side by side charts
+boxplot(covid_df$total_deaths,
+        main = "Deaths from each state"
+        )
+boxplot(covid_df$total_death_rate,
+        main = "Deaths per 100,000 people"
+        )
+```
+## Graph it to pdf
+```{r}
+par(mfrow = c(1,2)) #mfrow set up like matrix c(numrows, numcols) to create side by side charts
+boxplot(covid_df$total_deaths,
+        main = "Deaths from each state"
+        )
+boxplot(covid_df$total_death_rate,
+        main = "Deaths per 100,000 people"
+        )
+#pdf(file = "Lab 3/Covid death rate by state.pdf", width = 8, height = 6)
+#Note: I commented this out after running this code chunk once to save to pdf.
+
+```
+
+**Question 2:**
+
+```{r}
+#Find the outliers!!
+summary(covid_df$total_deaths)
+#get IQR
+IQR(covid_df$total_deaths)
+
+
+# get threshold values for outliers
+Tmin = 5580-(1.5*22374.5) #first quartile minus 1.5*IQR
+Tmax = 27954+(1.5*22374.5) ##third quartile plus 1.5*IQR
+
+subset(covid_df, total_deaths > Tmax)[,2]
+
+#the output shows states with total deaths greater than the Tmax threshold calculated above. These states are also the four most populated in the country, which explains why the total is higher than the less populated states.
+```
+
+
+# Histograms and data distributions
+
+## Graph it
+```{r, fig.width=12, fig.height=8}
+par(mfrow = c(1,2), cex.axis = 0.8) #mfrow set up like matrix c(numrows, numcols) to create side by side charts
+
+hist(covid_df$total_deaths,
+     xlab = "number of deaths in thousands",
+     main = "Covid deaths by state",
+     breaks = 6,
+     xlim = c(0,120000),
+     axes = F) #specify breaks, xlim, turn axes off to modify
+axis(side = 1, at = c(0,20000, 40000, 60000, 80000, 100000, 120000), labels =  c(0,20,40,60,80,100,120)) #creates shorter labels that represent same numeric values as before
+axis(side = 2, at = c(0,5, 10, 15, 20, 25, 30))
+hist(covid_df$total_death_rate,
+     xlab = "deaths per 100,000",
+     main = "state Covid death rate")
+```
+
+**Question 3:**
+The total number of deaths does not show a normal distribution bell curve. This is because total number of deaths for each state correlates with the total population of each state, which does not show a normal distribution as some states are much more populated than others like California and Texas.
+
+# Map plotting
+
+## Spatial correlation
+```{r}
+plot_usmap()
+```
+
+```{r}
+#first we have to add a column to our covid_df called "state".
+#the plot_usmap() function requires this column to work
+covid_df$state <- rownames(covid_df)
+
+plot_usmap(data = covid_df, values = "total_deaths") +
+  scale_fill_continuous(low = "white", high = "midnightblue", 
+          label = scales::comma, name = "total deaths") +
+          theme(legend.position = "right") +
+          labs(title = "US covid19 deaths", 
+               subtitle = "total number of cases by state")
+```
+
+## Graph it
+```{r}
+plot_usmap(data = covid_df, values = "total_death_rate") +
+  scale_fill_continuous(low = "white", high = "red", 
+          label = scales::comma, name = "total death rate") +
+          theme(legend.position = "right") +
+          labs(title = "US covid19 death rate per 100,000", 
+               subtitle = "total number of cases by state")
+```
+
+**Question 4:**
+The case rate map eliminates the confounding variable of total state population. This map shows the states where people are most likely to die from COVID.
+
+# Strip charts for correlations between numeric and categorical variables
+
+## Political correlation
+
+## Graph it
+```{r}
+stripchart(covid_df$total_death_rate ~ vote_df$called, 
+           col = c("navyblue", "firebrick"), # choose colors
+           method = "jitter", #adds minor variation 
+                              #in data to limit overlapping of points
+           pch = 1, # controls the shape of the data points
+           xlab = "Covid death rate by state",
+           group.names = c("Democratic","Republican"),
+           cex = 1.5, lwd = 2 #controls size and line thickness of points
+           )
+```
+```{r}
+stripchart(covid_df$perc_fully_vax ~ vote_df$called, 
+           col = c("turquoise", "red"), # choose colors
+           method = "jitter", #adds minor variation 
+                              #in data to limit overlapping of points
+           pch = 2, # controls the shape of the data points
+           xlab = "percent fully vaccinated",
+           group.names = c("Democratic","Republican"),
+           cex = 1.5, lwd = 2 #controls size and line thickness of points
+           )
+```
+```{r}
+stripchart(covid_df$med_income ~ vote_df$called, 
+           col = c("skyblue", "coral"), # choose colors
+           method = "jitter", #adds minor variation 
+                              #in data to limit overlapping of points
+           pch = 18, # controls the shape of the data points
+           xlab = "Median income",
+           group.names = c("Democratic","Republican"),
+           cex = 1.5, lwd = 2 #controls size and line thickness of points
+           )
+```
+
+**Question 5:**
+Yes, states that voted Democrat generally had a lower death rate. Additionally, states that voted Republican generally had a lower vaccination rate. Hence, vaccination rate and other variables like regulations and mask wearing likely affected the overall death rate per state. Evidently, political party affiliation explains businesses and individual decisions behind vaccination and masking up...
+
+# Scatter plots of correlations between numerical variables
+
+## Graph it
+```{r, fig.width=8}
+par(mfrow = c(1,2)) #mfrow set up like matrix c(numrows, numcols) to create side by side charts
+plot(total_death_rate ~ perc_fully_vax, data = covid_df, xlab = "percent of population fully vaccinated", ylab = "covid death rate by state")
+plot(death_rate_3_months ~ perc_fully_vax, data = covid_df, xlab = "percent of population fully vaccinated", ylab = "Past 3 months covid death rate by state")
+```
+
+# Fancy up that plot
+
+## Graph it
+```{r}
+#make a custom color pallet called "clr"
+clr <- c("navy", "firebrick4") 
+
+#set up the plotting space
+plot(total_death_rate ~ perc_fully_vax, data = covid_df,
+     type = "n", 
+     xlab = "percent of state population that is fully vaccinated",
+     ylab = "death rate by state"
+     )
+
+# The argument type = "n" tells R to make a blank plotting space
+# now we can use the "text" function to plot our data using the 
+# state name abbreviations, which are in the vote_df dataframe under "stateid"
+# first we'll only plot the states that voted democratic by subsetting
+# and we'll make them blue (i.e. the first color in our pallet "clr")
+
+text(total_death_rate ~ perc_fully_vax, #gives the coordinates to plot the stat abbr.
+     lab = vote_df$stateid[vote_df$called == "D"], #tells which text to plot
+     data = subset(covid_df, vote_df$called == "D"), #subsets only the D states
+     col = clr[1]) #color of the text
+
+#now we'll plot the states that voted republican
+#and make them red
+
+text(total_death_rate ~ perc_fully_vax, 
+     lab = vote_df$stateid[vote_df$called == "R"], 
+     data = subset(covid_df, vote_df$called == "R"),
+     col = clr[2])
+
+#Add a legend
+legend("topright",    #puts legend in the top right corner
+       legend = c("voted dem.","voted rep."), #list of things in legend
+       text.col = clr, #colors to use for the text
+       bty = 'n', #this tells R to not draw a box around the legend
+       cex = 1.5) # this increases the font size by 50%
+
+#Add a trend line using abline
+#this is a function for adding lines to plots
+#we can use a simple linear model (lm()) to define our line
+#we'll talk much more about lm() next time,
+#so don't worry if it is new to you now
+abline(
+  lm(total_death_rate ~ perc_fully_vax, data = covid_df),
+  lwd = 2, col = "purple") #set line width and color
+```
+

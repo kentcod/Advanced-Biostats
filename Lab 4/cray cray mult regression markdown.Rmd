@@ -1,0 +1,183 @@
+---
+title: "Cray cray model selection"
+author: "J skelton"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Set up
+* set your WD
+* load the dataframe of crayfish and their worms (a copy is in Bb)
+** disclaimer - these data have been altered for demonstrative purposes **
+
+```{r}
+#read in raw data making ID the row names
+df <- read.csv(file = "cray_worm_NewRiver2.csv",  row.names = 1)
+
+```
+
+Remember from the simple regression example that modeling the raw number of worms did not satisfy all of our assumptions for linear regression. So, lets transform.
+* Make a new variable of log-transformed worms counts
+
+```{r}
+df$log_worms <- log(1 + df$worms)
+```
+
+
+Now we'll make a true/false variable for whether each crayfish is a native crayfish species or not. The native species are coded "bart" and "scio" in the data
+
+```{r}
+df$NATIVE <- df$SPEC %in% c("scio","bart")
+```
+
+# STOP!!!
+Think about which variables are potentially important for explaining the number of worms. Then clean up your dataframe subsetting only the interesting variables. Then, get rid of observations with missing data.
+
+```{R}
+#lose the variable we don't want to deal with
+df <- df[,!names(df) %in% c("DATE", "WATERSHED", "JULIAN_DAY")]
+
+#remove observations with missing data
+df <- na.omit(df)
+```
+
+
+# Examine the data
+
+We'll skip the outlier checks (see simple regression example) since we've done it previously for these data.
+
+## Look for collinearity among predictor variables
+
+```{r, fig.width = 14}
+plot(df)
+```
+
+
+It seems mass and length (CL) are pretty correlated. We can use a Pearson r to quantify the correlation.  
+
+```{r}
+cor(df$CL, df$MASS) #collinear - might be redundant
+```
+
+
+Yup. Let's remove MASS to avoid col linearity issue with CL in our predictors. Why might I pick length over mass?
+
+```{r}
+df <- df[,!names(df) %in% c("MASS")]
+
+#Here is another way: df <- subset(df, select = -c(MASS))
+```
+
+# Make a model :)
+
+Define a a  linear model called "mod" based off our best hypothesis of the data and look at the model summary:
+
+```{r}
+mod <- lm(log_worms ~ STREAM  + SEX + CL + SPEC + NATIVE, data = df)
+summary(mod)
+```
+
+# Assess the model
+
+WTF! why are there so many coefficients?
+
+* For categorical variables, the linear model estimates a coefficient for each category (called "levels") in the variable - i.e. for each species of crayfish and for each stream, and for each sex. 
+
+What happened to "NATIVE"?
+
+* Native and species are collinear. This may sound weird for two categorical variables, but think abut it. Each species is either native or not. So, species, perfectly predicts native every time. Therefore, they compete for the same variance in the response variable and after we fir the species coefficient, there is nothing left for NATIVE. One of them must go. We'll drop species.
+
+```{r}
+mod <- lm(log_worms ~ STREAM  + SEX + CL + NATIVE , data = df)
+summary(mod)
+```
+
+
+
+# Model selection
+
+Now we'll start removing variables that do not help us explain worms. Following the recommendations of the Zuur book,we'll use the "drop1" function with an F-test to sequentially remove predictors that do not significantly improve the model.
+* If multiple terms are not sig, remove the one with the smallest absolute F (or t) value.
+
+```{r}
+drop1(mod, test = "F")
+```
+Why are there fewer lines than the model summary? 
+*asking if all coefficients significantly improve our model. When making decisions about keeping it in model, want to look at OVERALL significance, not ind. levels of cat var*
+*Use F stat - tells you how significant the effect is. Throw away the var with the lowest abs. value*
+
+* Redefine model without STREAM and retry drop1
+* Remember, only remove one variable at a time!!!
+
+```{r}
+mod2 <- lm(log_worms ~ SEX + CL + NATIVE , data = df)
+summary(mod2)
+```
+
+
+Try drop1 again on new reduced model
+```{r}
+drop1(mod2, test = "F")
+```
+
+And again dropping sex....
+
+```{r}
+mod3 <- lm(log_worms ~ CL + NATIVE , data = df)
+summary(mod3)
+
+drop1(mod3, test = "F")
+```
+
+# Model validation - CHECK ASSUMPTIONS
+
+## Normailty of resids
+```{r}
+hist(mod3$residuals)
+shapiro.test(mod3$residuals) #take with grain of salt bc better to visualize
+```
+
+
+## Check homogeneity
+```{r}
+plot(mod2, which = 1)
+```
+
+## Check for non-independence
+
+```{r}
+plot(mod2$residuals ~ df$CL) #if correlated, we need to go back
+stripchart(mod2$residuals ~ df$NATIVE, vertical = T)
+```
+# Plot it
+
+Because of our transformation, this is a bit more involved. We cannot simply use the abline function as
+we did in simple regression. We have to make a dummy data set and estimate the number of worms for all combinations of our predictor variables.
+
+```{r}
+#make dummy dataframe for range of lengths and native = T/F
+dummy_data <- expand.grid(CL = 10:50, NATIVE = c(TRUE,FALSE))
+
+#estimate the transormed number of orms using our model
+fit <- predict(mod3, newdata = dummy_data)
+
+#un-log-transform the estimates to get numbers of worms
+fit <- exp(fit) - 1
+
+#plot the raw data
+plot(worms ~ CL, col = "grey75", data = df)
+
+
+#draw a line for the natives
+lines(x = dummy_data$CL[dummy_data$NATIVE == TRUE],
+      y = fit[dummy_data$NATIVE == TRUE],
+      lwd = 2,
+      col = "green")
+#now one for the non-natives
+lines(x = dummy_data$CL[dummy_data$NATIVE == FALSE],
+      y = fit[dummy_data$NATIVE == FALSE],
+      lwd = 2,
+      col = "coral")
+#add a legend
+legend("topleft", legend = c("native","non-native"),
+       lwd = 2, col = c("green","coral"), bty = "n")
+```

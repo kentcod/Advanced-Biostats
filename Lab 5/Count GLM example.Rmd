@@ -1,0 +1,209 @@
+---
+title: "GLM of count data"
+author: "J skelton"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+# Cray cray worm count example
+
+## Getting started
+
+* Set your WD
+* Load the data.frame of crayfish and their worms (a copy is on Bb)
+* install MASS and lmtest packages if you dont have them
+
+```{r}
+# install.packages("MASS")
+# install.packages("lmtest")
+#install.packages("AER")
+
+library(MASS)
+library(lmtest)
+library(AER)
+#read in raw data
+df <- read.csv(file = "cray_worm_NewRiver(1).csv")
+```
+
+* Make two new variables, one for total number of worms on each crayfish and one logical variable for whether the crayfish is native (true) or not (false).
+
+* Then subset the df to include the variables native, sex, CL, mass, and number of worms.
+
+```{r}
+#make a new variable of the sum of all worm species for each crayfish
+df$worms <- rowSums(df[,14:23])
+
+#make a true/false variable for whether 
+#it is a native crayfish species
+#the native species are coded "bart" and "scio" in the data
+df$native <- df$SPEC %in% c("scio","bart")
+
+#subset only the variables of interest
+df <- df[,c("native","SEX","CL","MASS", "worms")]
+
+#remove observations with missing data
+df <- na.omit(df)
+```
+
+# Modeling
+
+To save time, we'll skip model selection procedure, since we've already identified the most important predictors during our multiple regression example last week.
+
+We'll start with looking at the data
+
+```{r, fig.width = 12}
+plot(df)
+```
+
+Clearly CL and MASS are strongly correlated. We'll keep CL as our measure for size, and Sex and native as other predictors of worm abundance.
+
+Plot CL versus worms. Does this look linear? Does it satisfy the assumptuon of homogeniety? Other issues?
+
+```{r}
+plot(df$worms ~ df$CL, ylab = "number of worms", xlab = "carapace length (mm)")
+```
+
+Becasue we are dealing with counts, we'll start with a Poisson model.
+
+```{r}
+mod.pois <- glm(worms ~
+                  CL  + native, 
+                data = df, family = "poisson")
+```
+
+## Notice:
+* We don't need to specify the link bc a log link is assumed for poisson GLM
+
+Look at the model summary
+```{r}
+summary(mod.pois)
+```
+
+* Which predictors are significant?
+* What is our R square?
+
+# Model validation
+
+Is there evidence of over-dispersion?
+* One way to check is to divide the residual deviance by degrees of freedom. If the quotient is much greater than 1, we need to deal with over-dispersion.
+
+* 23022/620 = 37.13, so yeah, looks like we got a problem.
+
+Here is another way. Look at the residuals versus the predictor CL.
+**note that I have NOT used mod.pois$residuals. Why?**
+
+```{r}
+plot(predict(mod.pois),residuals.glm(mod.pois, type = "deviance"))
+```
+
+We still have a huge trumpet - so, again, more confirmation that we have overdispersion in our response variable. 
+
+In case you need further convincing, yes, there are statistical tests. The one implemented here tests the null hypothesis that the mean and variance are equal (i.e. n over dispersion).
+
+```{r}
+dispersiontest(mod.pois)
+```
+p val says dist. does not fit data very well
+
+# Negative binomial model
+
+Now we will try a negative binomial GLM which has an extra parameter to estimate the relationship between the mean and variance of our model predictions.
+
+```{r}
+mod.nb <- glm.nb(worms ~
+                   CL + native, 
+                 data = df)
+
+summary(mod.nb)
+```
+
+* Now look at residual deviance vs df
+
+* Look at theta. What is that? 
+
+# Compare residuals from the 2 models
+
+```{r}
+#first poisson
+#predict.glm defaults to standardized deviance residuals
+par(mfrow = c(1,2))
+plot(predict(mod.pois),residuals.glm(mod.pois), main = "poisson glm")
+#ideally deviance residuals will fall between -2 and 2
+#we'll draw some ref lines
+abline(h = c(2,-2), col = "red")
+
+#now the NB model
+plot(predict(mod.nb),residuals.glm(mod.nb), main = "NB glm")
+abline(h = c(2,-2), col = "red")
+```
+
+# Directly compare models
+
+Clearly the residuals look much better for the negative binomial model.
+Still unconvinced? Because Poisson is a special case of neg binomial where theta (k) = infinity, these are nest models and can be directly compared using a Liklihood ratio test.
+
+```{r}
+lrtest(mod.pois,mod.nb)
+```
+
+Log liklihood is significantly higher for model 2 - the negative binomial.
+
+* Conclusion, better fit with NB :D
+
+# Now lets plot the model
+
+```{r}
+par(mfrow = c(1,1))
+
+new.dat2 <- expand.grid(CL = 5:50, native = c(TRUE,FALSE), SEX ="M1")
+pred2 <- predict(mod.nb, newdata = new.dat2, se.fit = T, type = "response")
+#add newly random generated data (newdat2), fit SE to later make CI bars, 
+#type = response EXPONENTIATES the log linked predictions
+#necessary bc our model predicts the log number of worms
+
+plot(1,1, type = "n",
+     ylim = c(0,350), xlim = c(5,50),
+     ylab = "number of worms", xlab = "carapace length (mm)")
+
+
+points(df$CL[df$native == "FALSE"], 
+       df$worms[df$native == "FALSE"],
+       pch =21, bg = rgb(134/255, 31/255, 65/255, .25), cex = 1)
+points(df$CL[df$native == "TRUE"], 
+       df$worms[df$native == "TRUE"],
+       pch =21, bg = rgb(232/255, 119/255, 34/255, 1), cex = 1)
+
+
+
+lines(new.dat2$CL[new.dat2$native == "TRUE"], pred2$fit[new.dat2$native == "TRUE"], 
+      col = rgb(232/255, 119/255, 34/255, 1), lwd = 2)
+lines(new.dat2$CL[new.dat2$native == "FALSE"], pred2$fit[new.dat2$native == "FALSE"], 
+      col = rgb(134/255, 31/255, 65/255, 1), lwd = 2)
+
+legend(5,370, pch = 21, 
+       pt.bg = c(rgb(232/255, 119/255, 34/255,1), rgb(134/255, 31/255, 65/255,.25)),
+       pt.cex = 1.5, pt.lwd = 2,    legend = c("non-native host","native host"), bty = "n")
+
+
+
+lwr.inv <- pred2$fit[new.dat2$native == "TRUE"] - pred2$se.fit[new.dat2$native == "TRUE"]
+upr.inv <- pred2$fit[new.dat2$native == "TRUE"] + pred2$se.fit[new.dat2$native == "TRUE"]
+lwr.non <- pred2$fit[new.dat2$native == "FALSE"] - pred2$se.fit[new.dat2$native == "FALSE"]
+upr.non <- pred2$fit[new.dat2$native == "FALSE"] + pred2$se.fit[new.dat2$native == "FALSE"]
+
+polygon(x = c(5:50,rev(5:50)), 
+        y = c(lwr.inv,rev(upr.inv)), 
+        col = rgb(232/255, 119/255, 34/255, 0.25), border = F)
+
+polygon(x = c(5:50,rev(5:50)), 
+        y = c(lwr.non,rev(upr.non)), 
+        col = rgb(134/255, 31/255, 65/255, 0.25), border = F)
+
+```
+
+
+
+
+
+

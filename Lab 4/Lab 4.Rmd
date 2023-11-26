@@ -1,0 +1,138 @@
+---
+title: "Lab 4 Covid model selection"
+author: "Kent Codding"
+date: "2023-09-27"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set up
+
+```{r}
+setwd("C:/Users/Kent Codding/Desktop/Adv Biostat")
+all_data <- read.csv(file = "Lab 2/all_data.csv")
+vote <- read.csv(file = "Lab 3/vote.csv")
+```
+## make new df
+```{r}
+all_data <- all_data[, c("total_death_rate","perc_one_dose", "perc_fully_vax","med_income","nuclear", "Row.names")]
+
+vote <- vote[, c("called", "dem_percent")]
+df <- merge(all_data, vote, by = 0)[-1] #-1 gets rid of duplicated row.names in result
+
+```
+## change rownames to state name
+```{r}
+df$State <- df$Row.names
+df <- df[-6]
+```
+
+# Data cleaning and selection
+## Outliers
+### Graph it
+```{r}
+plot(df)
+```
+
+### Question 1
+option 1. Remove outliers from dataset.
+option 2. Apply data transformation (logarithmic transformation reduced outliers in logworms case as shown in class). 
+
+## Collinearity
+### Graph it
+```{r}
+plot(df)
+```
+```{r}
+cor(df$perc_one_dose, df$perc_fully_vax) #collinear - might be redundant
+```
+
+### Question 2
+Yes, some variables show collinearity like percent one dose and percent fully vax. This is because they are measuring a very similar metric. I can verify collinearity by looking at visualizations of the data like the plot above or running tests like the Pearson R above... which should be taken with a grain of salt. After running a linear model, if collinear variables are still present within, redundant categorical variables could give an NA result as shown with the SPECIES and NATIVE categorical variables in the crayfish example. If numerical variables like percent one dose and percent fully vax are kept in this case, a linear model may incorrectly assume which variable is the predictor. As follows, the summary of the linear model would give different results each time pertaining to which variable is an accurate predictor and which is not. 
+
+### remove variables
+```{r}
+df <- df[-c(2,7)]
+```
+# Interactions
+## Question 3
+because we do not have a specific hypothesis pertaining to the remaining variables within df, it may be unwise to include an interaction term willy-nilly because it can make the model unnecessarily complicated. It may be useful to add an interaction term after playing with the barebones model first.
+## Model it
+```{r}
+mod1 <- lm(formula = total_death_rate ~ perc_fully_vax + med_income + nuclear + called, data = df)
+summary(mod1)
+```
+
+## Question 4
+THe overall model is significant as the p-value is 1.89e-05. However, only perc_fully_vax is significant. The other variables will have to be removed by top-down model selection in the next step. The adjusted R-squared is about 40%, showing that this barebones model explains about 40% of variation in the response variable. 
+
+## perform "top-down" model selection using drop1 until all predictors are significant
+```{r}
+drop1(mod1, test = "F")
+
+```
+```{r}
+mod2 <- lm(total_death_rate ~ perc_fully_vax + med_income + called, data = df)
+summary(mod2)
+```
+```{r}
+drop1(mod2, test = "F")
+```
+```{r}
+mod3 <- lm(total_death_rate ~ perc_fully_vax + med_income, data = df)
+summary(mod3)
+```
+```{r}
+drop1(mod3, test = "F")
+```
+```{r}
+mod4 <- lm(total_death_rate ~ perc_fully_vax, data = df)
+summary(mod4)
+```
+# Model validation 
+## Assumption of normality
+### Graph it
+```{r}
+hist(residuals(mod4))
+```
+### Question 5
+```{r}
+shapiro.test(mod4$residuals) #take with grain of salt because it is better to visualize
+
+```
+There is no evidence of violating the assumption according to both the histogram of residuals and the W, which is close to 1.
+
+## Assumption of homogeneity
+### Graph it
+```{r}
+plot(mod4, which = 1)
+```
+### Question 6
+my model passes the test for this assumption. If my model showed heterogeneity, it may need to undergo a transformation like a log transformation.
+## Assumption of fixed X
+### Question 7
+```{r}
+plot(df$total_death_rate ~ df$perc_fully_vax)
+```
+No, I do not think that my predictor variable meets this assumption because noise exists within the X variable: perc_fully_vax. But then again, what model can meet this assumption?
+
+## Assumption of Independence
+### Graph it
+```{r}
+plot(mod4$residuals ~ df$perc_fully_vax)
+```
+### Question 8 
+This plot shows no obvious relationship between values of y being affected by any other values of X, so it provides evidence for independence. 
+### Graph it
+```{r}
+y_pred <- predict(mod4, newdata = df)
+
+plot(df$total_death_rate ~ df$perc_fully_vax,
+     bg = "coral",
+     pch = 21)
+lines(y_pred ~ df$perc_fully_vax, col = "green")
+```
+

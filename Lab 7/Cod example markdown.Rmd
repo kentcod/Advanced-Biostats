@@ -1,0 +1,279 @@
+---
+title: "Zero inflated model cod eparasite example"
+author: "J skelton"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Install and load some packages
+
+* note that "countreg" is not available on CRAN, so I've provided the code needed to get it from R-Forge.
+```{r}
+#install.packages("pscl")
+#install.packages("countreg", repos="http://R-Forge.R-project.org")
+library(MASS)
+library(countreg)
+library(pscl)
+library(lmtest)
+library(AER)
+```
+
+# Load data and cleaning the data
+Cod parasite data (From Hemingsen et al 2005 - "Crabs, leeches and trypanosomes: an unholy trinity?") are provided in the countreg package.  
+
+```{r}
+data("CodParasites")
+
+#give shorter name and remove NAs
+cod <- na.omit(data.frame(CodParasites))
+```
+
+# Preparing the data for analysis
+
+Here we change the reference site in the variable "area" to "varangerfjord". The researchers predicted that this site is higher in parasite prevelance than all other sites, so model interpretation will be easiest if we make that site the reference, instead of the site arbitrarily chosen by R :)
+
+```{r}
+cod <- within(cod, 
+      area <- relevel(area, ref = "varangerfjord")) #releveling cat variable so that their hypothesized highest parasite area is the reference
+```
+
+
+# Choosing the type of model
+
+![Model decision tree from lecture](HowToPickModel.png)
+
+
+
+# Step 1 from the decision tree - Is there overdispersion?
+
+We can do this by fitting the simplest count model, and poisson glm, and checking for over-dispersion any of the ways we have seen before. We will start with all the predictor variables that we think might be important, and do model selection after deciding on model structure.
+
+```{r}
+cod.pos <- glm(
+  intensity ~ depth + length + area, 
+  data = cod, family = "poisson")
+
+summary(cod.pos)
+
+dispersiontest(cod.pos)
+```
+
+Yup. Overdispersed, big surprise, right?
+
+# Step 2: Is there Zero inflation?
+
+As always, looking at the data is a good idea
+
+```{r}
+#look at histogram for distribution
+hist(cod$intensity, breaks = 100)
+
+#what proportion of the data are zeros?
+sum(cod$intensity == 0) / nrow(cod)
+```
+
+Eeeesh! nearly 55% are = 0. Probably some zero inflation here!
+
+
+One way to check zero inflation, is rootograms (Kleiber and Zeileis 2016 - on Bb). A rootogram shows the square root observed frequency of each integer from the actual data (gray bars) against the predicted square root frequencies from your model (red line). These can be plotted several ways (see the paper), we are using the "standing" method because I thin kit is easiest to interpret, but your opinion may differ.
+
+```{r}
+
+rootogram(cod.pos, style = "standing")
+
+```
+Notice that we have many more zeros (cods with no parasites) in the observed data (grey bars) than predicted by the Poisson model (red line), and fewer 1's, 2's,...etc.  This result strongly suggests zero-inflation.
+
+* Where would it come from in these data and what kind of excess zeros could be present?
+* Should we use a Hurdle Model (zero affected - only one process causes zeros) or a mixture (zero inflated - both biological process and count process) model?
+
+
+Now lets start by fitting a ZIP (poisson) mixture model to see if if it corrects the expected frequency of zeros by comparing to our poisson GLM
+
+
+The syntax for a mixture model is a bit different from glm because it has two parts. The part on the left of the "|" is our count model. To the right is the zero inflation model. We'll  use the same variables in each to start with, but we could use different variables for the two parts if that was our hypothesis. 
+
+
+```{r}
+cod.ZIP <- countreg::zeroinfl(
+  intensity ~ depth + length + area | depth + length + area, #left side of | is count model; other side is binomial proc that det. zero or nonzero
+  data = cod, dist = "poisson")
+summary(cod.ZIP)
+
+par(mfrow = c(2,1))
+
+rootogram(cod.pos, style = "standing")
+rootogram(cod.ZIP, style = "standing")
+
+```
+There! Now we have a much better correspondence between observed and predicted frequencies of zeros :)
+However.....
+
+# Step 3: Is overdispersion due only to zero-inflation?
+
+Unfortunately, we cannot apply a simple dispersion test to the mixture model, nor can we look at the residual deviance and dfs. What we can do is directly compare our poisson mixture model (ZIP) to a negative binomial (ZINB), because one (ZIP) is a nested subset of the other(ZINB).
+
+```{r, fig.width=12}
+
+# fit a ZINB
+cod.ZINB <- countreg::zeroinfl(
+  intensity ~ depth + length + area | depth + length + area, 
+  data = cod, dist = "negbin")
+
+
+par(mfrow = c(2,1))
+
+rootogram(cod.ZIP, style = "standing")
+rootogram(cod.ZINB, style = "standing")
+
+#compare with liklihood ratio test
+lrtest(cod.ZIP,cod.ZINB) #we can compare bc poisson is nested subset of neg binom (and used same params)
+```
+
+# Model selection
+
+Okay, we've settled on a zeroinflated neg binomial (ZINB) for now. Lets see how the model looks
+
+```{r}
+summary(cod.ZINB)
+```
+
+Looks like depth not sig for count model. Sadly, drop1 does not work with mixture models, so we'll have to do this manually.
+
+* drop depth from count model and compare new reduced model to the previous one.
+
+```{r}
+cod.ZINB2 <- zeroinfl(
+  intensity ~ length + area | depth + length + area , 
+  data = cod, dist = "negbin")
+
+#Use a liklihood ratio test to compare nested ZINB models
+#drop1 will not work for zero-inflated models
+lrtest(cod.ZINB2, cod.ZINB)
+
+# having depth in the count model does not sig improve the model
+# so drop it
+
+cod.ZINB <- cod.ZINB2
+summary(cod.ZINB)
+```
+Okay, now the same for the zero inflated model and "length"
+
+```{r}
+cod.ZINB2 <- zeroinfl(
+  intensity ~ length + area | depth  + area , 
+  data = cod, dist = "negbin")
+
+lrtest(cod.ZINB2, cod.ZINB)
+cod.ZINB <- cod.ZINB2
+
+summary(cod.ZINB)
+
+```
+And now for area in the zero-infltion part
+```{r}
+cod.ZINB2 <- zeroinfl(
+  intensity ~ length + area | depth  , 
+  data = cod, dist = "negbin")
+
+lrtest(cod.ZINB2, cod.ZINB)
+summary(cod.ZINB)
+
+```
+Area stays in, and everything is significant :)
+
+
+# Plot the final model!!
+
+
+First, we can plot the zero inflation part of model. Using "predict" with type = "zero" gives us estimated probability of a structural zero (a.k.a a zero not due to the neg binomial count process).
+
+* Lets look at the probability of structural zeros at different sampling areas
+
+```{r}
+
+boxplot(predict(cod.ZINB, type = "zero") ~ cod$area, log = "y") #type = 0 gives prob of 0 from the binomial process
+
+```
+
+Now lets look at probability of structural zero as a function of depth
+
+```{r}
+#first make new data set holding all the coviariates constant
+
+ND.depth <- expand.grid(list(depth = 50:300, 
+                             length = median(cod$length),
+                              area = "tanafjord"))
+#plot all fitted points
+plot(cod$depth,predict(cod.ZINB, type = "zero"))
+  
+#draw fit line using ND.depth above
+lines(ND.depth$depth, 
+        predict(cod.ZINB2, type = "zero", newdata = ND.depth),
+        lwd = 4, col = "darkred")
+```
+Now we can plot the count model
+
+```{r}
+#####################################################
+
+ND.length <- expand.grid(list(depth = median(cod$depth), 
+                          length = 10:100,
+                          area = "tanafjord"))
+ND.area <- expand.grid(list(depth = median(cod$depth), 
+                              length = median(cod$length),
+                              area = unique(cod$area)))
+#plot parasite intensity vs length
+plot(cod$length,log(cod$intensity))
+lines(ND.length$length, 
+      log(predict(cod.ZINB2, type = "response", newdata = ND.length)),
+      lwd = 4, col = "darkred")
+```
+
+Now a boxplot of fitted values by area
+```{r}
+plot(cod$area, predict(cod.ZINB, type = "response"))
+
+```
+
+Compare to Zero Affected ("hurdel") model
+
+```{r}
+cod.ZANB <- hurdle(
+  intensity ~ length + area | depth + length + area, 
+  data = cod, dist = "negbin")
+
+par(mfrow=c(1,2))
+plot(cod$area, predict(cod.ZINB, type = "response"),
+     main = "ZINB", ylim = c(0,50))
+plot(cod$area, predict(cod.ZANB, type = "response"),
+     main = "ZANB", ylim = c(0,50))
+
+#plot fitted values of ZINB vs. ZANB
+par(mfrow = c(1,1))
+plot(predict(cod.ZINB, type = "response"), 
+     predict(cod.ZANB, type = "response"))
+abline(0,1)
+```
+
+
+Compare ZANB to two independent binomial GLM and 0 trunc NB
+
+```{r}
+#make a new variable indicating if parasite intensity is > 0
+pos <- 1*(cod$intensity>0)
+
+#fit a regular binomial GLM to model 0 vs not 0 (pos)
+cod.binom <- glm(pos ~ depth + length + area, 
+                 data = cod, family = "binomial")
+#fit a zero truncated NB for all observations of intensity > 0
+cod.ztrunc <- zerotrunc(intensity ~ length + area, data = cod[pos==1,], dist = "negbin")
+
+#compare coefficients for zero inflation part
+rbind(coef(cod.ZANB, "zero"),coef(cod.binom))
+
+#compare coefficients for count models
+rbind(coef(cod.ZANB, "count"), coef(cod.ztrunc))
+
+#end     
+```

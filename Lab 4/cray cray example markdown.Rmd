@@ -1,0 +1,171 @@
+---
+title: "Cray cray simple linear regression"
+author: "J skelton"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Set up
+* set your WD
+* load the dataframe for crayfish and their worms (a copy is in Bb)
+
+```{r}
+df <- read.csv(file = "cray_worm_NewRiver.csv")
+```
+
+# Do larger crayfish have more worms?
+Make a new variable that is the sum of all worm species for each crayfish
+
+```{r}
+df$worms <- rowSums(df[,14:23])
+```
+
+Check predictors for outliers, missing data etc
+```{r}
+boxplot(df$CL, 
+        main = "crayfish size", ylab = "carapace length (mm)")
+```
+
+
+Hmmm, maybe 1 borderline case. Experience tells me this is 
+within the range of realistic. We'll keep it in there ;)
+
+Now explore the response variable of total worms:
+
+```{r}
+boxplot(df$worms,
+        main = "crayfishworm infestation intensity", ylab = "number of worms")
+```
+
+Uh-oh, lots of outliers, What can we do????
+
+Lets proceed just to see what happens (DANGER ZONE!)
+
+
+## STOP!!! ALWAYS LOOK AT YOUR DATA FIRST!!!
+Is there a relationship worth pursuing?
+What potential problems do you see for simple linear regression?
+
+```{r}
+plot(worms ~ CL, data = df,
+     xlab = "crayfish length (mm)", 
+     ylab = "number of worms")
+```
+
+
+
+## Fit a simple linear model
+
+lm is the function for fitting a lnear model in R. Use the ~ "explained by" symbol to define the model. The argument "data" points R to the right dataframe
+
+```{r}
+mod1 <- lm(worms ~ CL, data = df)
+```
+
+# Check assumptions!
+
+## Check that residuals are normally distributed
+```{r, fig.width = 12, fig.height = 4}
+par(mfrow = c(1,2))
+hist(mod1$residuals, breaks = 50)
+  abline(v=0, col = "coral")
+```
+
+R offers other valuable diagnostic plots like this normal Q-Q plot:
+
+```{r}
+plot(mod1, which = 2) #should just be a line 
+```
+
+This is not even close to normal!
+
+We could statistically test normality of residuals, just to see. The W statistic should be close to 1 if the error is normally distributed. A P < 0.05 means we reject the hypothesis of normality.
+
+```{r}
+shapiro.test(mod1$residuals) 
+```
+
+## check homogeneity (homoscedasticity)
+
+Again, R offers easy built-in diagnostic plots.
+Plots residuals (how much error) over fitted values of the linear model
+needs to be the same throughout (homoscedasticity)
+
+```{r}
+plot(mod1, which = 1) #which = 1 defines which built in plot to use
+```
+
+Ugh, very heterscedastic. We have assumption issues.
+
+# Let's try a transformation of our response variable!
+
+We will try a 1+log transformation. This transformation makes biological sense if worms reproduce exponentially as crayfish grow.
+
+Here we create a new transformed response variable in our df called "log worm".
+
+```{r}
+df$log_worms <- log(1 + df$worms)
+```
+
+Refit model with transformed worm data
+
+```{r}
+mod2 <- lm(log_worms ~ CL, data = df)
+```
+
+# Recheck assumptions
+
+Check normality of residuals now
+
+```{r}
+par(mfrow = c(1,2))
+hist(mod2$residuals, breaks = 50)
+  abline(v=0, col = "coral")
+plot(mod2, which = 2)
+shapiro.test(mod2$residuals)
+```
+
+* Still not perfect, but much, much better.
+
+ Let's compare homogeneity before and after transforming data
+
+```{r, fig.width = 10}
+par(mfrow = c(1,2))
+  plot(mod1, which = 1)
+  plot(mod2, which = 1)
+```
+
+Much better :)
+
+Now we will check for signs of non-independence
+
+* There should be no pattern here
+
+```{r}
+plot(df$CL, mod2$residuals)
+```
+
+Again, no obvious pattern, seems to be an OK model.
+
+Finally, lets looks at the numerical output
+
+```{r}
+summary(mod2)
+```
+## Plot the models
+
+
+```{r, fig.width = 5}
+par(mfrow = c(1,1))
+plot(worms ~ CL, data = df, col = "grey75")
+abline(mod1, col = "orange", lwd = 2)
+
+fit <- predict(mod2, newdata = data.frame(CL = 10:50))
+fit <- exp(fit) -1
+lines(x = 10:50, y = fit, lwd = 2, col = "blue")
+
+#Add a legend.
+
+legend("topleft", legend = c("log-transormed","raw counts"),
+       lwd = 2, col = c("blue","orange"), bty = "n")
+```

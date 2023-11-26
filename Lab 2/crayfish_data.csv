@@ -1,0 +1,17 @@
+Crayfish worm survey,,,,,,,,
+crayfish data,,,,,,,,
+crayfishID,SAMPLE,DATA_SOURCE,WATERSHED,STREAM,SPEC,SEX,LENGTH,MASS
+MAGN_1_1A,1,MAGN,new,stoney,cris,M1,31.5,9.22
+MAGN_1_1B,1,MAGN,new,stoney,scio,F,33,10.92
+MAGN_1_1C,1,MAGN,new,stoney,cris,M2,34.5,15.65
+MAGN_1_2A,1,MAGN,new,stoney,scio,M2,missing,10.69
+MAGN_1_2B,1,MAGN,new,stoney,scio,F,36,17.04
+MAGN_1_2C,1,MAGN,new,stoney,cris,F,34,13.69
+MAGN_1_3A,1,MAGN,new,stoney,scio,F,34.5,11.78
+MAGN_1_3B,1,MAGN,new,sink,scio,F,missing,10.05
+MAGN_1_3C,1,MAGN,new,sink,scio,M2,26,6.48
+MAGN_1_4A,1,MAGN,new,sink,cris,M2,36.5,15.49
+MAGN_1_4B,1,MAGN,new,sink,cris,M2,36.5,16.78
+MAGN_1_4C,1,MAGN,new,sink,scio,M2,25,5.32
+MAGN_2_1,2,MAGN,new,sink,scio,F,33.19,13.21
+MAGN_3_1,3,MAGN,new,sink,cris,F,26.4,5.54

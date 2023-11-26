@@ -1,0 +1,599 @@
+---
+title: "Predicting Invasion"
+author: "Kent Codding"
+date: "2023-11-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In the following code, I will examine what landscape features, if any, influence overall plant invasion. I hypothesize that numerous landscape features will have a significant impact on invasion as invasive species are known to prefer low stress and highly nutrient available environments like riparian environments or eutrophic environments near farmland. Overall, the goal of the subsequent analyses is to predict plant invasion based on any significant features. 
+
+## Feasibility
+
+56 total polygons were surveyed all at James Monroe Highland in Charlottesville, Virginia. Further, I recorded invasion by determining the presence of invasive plants from the Virginia Department of Conservation and Recreation's 2014 list of State Invasive Species. Thus, These data provide a viable opportunity to determine relationships between landscape features and overall plant invasion in Virginia, specifically the blue mountain region.
+
+## Scope
+
+The following code and analyses will determine which landscape features contribute to overall plant invasion while controlling for any random effects like riparian buffer presence, determined later on.
+
+## Data Collection
+
+In the growing season of 2023, the data were collected over about 50 hours and 5 separate trips to the Rustic Trail System at James Monroe Highland in 2023. The n = 56 polygons were drawn based on distance from streams. To obtain measures for plant invasion, a Braun-Blanket cover class system was used: 1: 0-5% invasion, 2: 5-25% invasion, 3: 25-50% invasion, 4: 50-75% invasion, 5: 75-100% invasion. That is, each of the 56 polygons was marked as a numerical value from 1-5 to denote the level of invasive species compared to native species. Further, measures of other features were determined by geoprocessing within ArcGIS Pro. For example, Albemarle County provided historic imagery that could be digitized into layers for farmland cover from 1937-1955, 1955-1974, and 1974-1996. Then, using the tabulate intersection tool in ArcGIS Pro, the percentage of historic farmland for each respective year range was determined for each polygon. Lastly, geoprocessing also determined distance measurements for distance from farmland, distance from riparian buffer, distance from floodplain, and elevation from floodplain.
+
+## Important Variables
+
+In this portion of the study, the response variable is the numeric level of plant invasion (2-5 in this case because no polygons had less than 5% invasion). The potential predictor variables include distance from farmland, distance from riparian buffer, distance from floodplain, elevation from floodplain, percentage of evergreen forest, and percentage of converted farmland for each of the three previously stated year ranges.
+
+## Method Choice Reasoning
+
+# Analysis
+
+## load dependencies
+```{r}
+library(magrittr)
+library(glmmTMB) %>% suppressWarnings()
+library(MASS)
+```
+
+## load data
+
+Note: this data has previously been loaded and cleaned in python prior to the creation of the Multilayer Perceptron Classifier. After, I exported the cleaned dataframe from python to save time. The following chunk loads the exported dataframe as an object. Then, I drop some uninteresting columns that I do not want the model to consider as features. These columns include polygon ID, overall invasion by percent (I want the numeric value), and individual invasive species which I may analyze later... Finally, I created a binomial variable to determine whether the polygon is within 50 feet of the riparian buffer. I believe that this would be a more accurate determinant of the buffer's influence on plant invasion than a distance measurement of which the effect becomes redundant after a certain distance from the riparian buffer.
+
+```{r}
+df <- read.csv("surveyed_data.csv")
+df <- df[,-c(3,4,5)]
+df$RB <- (df$Distance_Riparian_Buffer < 50) %>% as.numeric()
+df <- df[,-1] #drop Distance from Riparian Buffer
+```
+
+## Data Preparation
+Clearly, there is multicollinearity between the individual converted forest percentages and the overall converted forest percentage (a combination of all three year ranges). To simplify analyses and decrease the number of zeros within the data, I will remove all three individual converted forest percentages and only use the overall converted forest percentage.
+
+```{r}
+plot(df)
+df <- df[,-c(4,5,6)]
+```
+
+## Model Specification
+
+
+### compare variance structures
+
+The response variable is not technically count data as level of invasion is an ordinal categorical variable, so I will fit a negative binomial glm. Then, I fit a glmm with a random slope and intercept for riparian buffer presence. All predictor variables will be included for each model with the interaction between distance from floodplain and RB.
+
+```{r}
+M1 <- glm.nb(overall_numeric ~ Distance_Farmland +
+          EAF +
+          Dist_Floodplain +
+          evergreen_forest +
+          total_conversion +
+          RB +
+          Dist_Floodplain * RB,
+          data = df)
+M2 <- glmmTMB(overall_numeric ~ Distance_Farmland +
+          EAF +
+          Dist_Floodplain +
+          evergreen_forest +
+          total_conversion +
+          RB +
+          (1|RB),
+          data = df,
+          family = nbinom2)
+M3 <- glmmTMB(overall_numeric ~ Distance_Farmland +
+          EAF +
+          Dist_Floodplain +
+          evergreen_forest +
+          total_conversion +
+          RB +
+          (Dist_Floodplain|RB),
+          data = df,
+          family = nbinom2)
+```
+```{r}
+AIC(M1, M2, M3)
+```
+
+
+## Model Selection
+
+```{r}
+summary(M1)
+```
+
+
+```{r}
+drop1(M1, test = "Chisq")
+```
+The interaction between distance_floodplain and riparian buffer has the lowest likelihood, so remove the interaction
+
+```{r}
+M1.1 <- glm.nb(overall_numeric ~ Distance_Farmland +
+          EAF +
+          Dist_Floodplain +
+          evergreen_forest +
+          total_conversion +
+          RB,
+          data = df)
+summary(M1.1)
+```
+
+
+
+
+
+
+
+
+
+#Part II: Individual Spp
+
+Note: for my project pitch, I was not intending to include the collected data for individual species... but then the following Tuesday we discussed multivariate analysis, which I thought could be interesting to apply to this highly dimensional data which includes cover class data for 21 individual species. The cover class for each individual species has a different scale: 1: < 1% of cover in polygon, 2: 1-5%, 3: 5-20%, 4: > 20%. 
+
+## re-read data
+```{r}
+df <- read.csv("surveyed_data.csv")
+spp <- c()
+
+# create a list that contains individual species for each polygon
+for(i in df$individual){
+  spp <- c(spp,(strsplit(i, ",")))
+} 
+```
+
+# Tedious data cleaning 
+
+Here, I loop through each row of the individual column of the dataframe (in the form of the created list) and extract information on the indivudal species listed there. I did this for each invasive species encountered in the data.
+
+## MIVI
+```{r}
+MIVI <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("MIVI" %in% spp.vec){
+    idx <- which(spp.vec == "MIVI")
+    MIVI <- c(MIVI, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    MIVI <- c(MIVI, 0)
+}
+df$MIVI <- MIVI
+```
+## LOJA
+
+```{r}
+LOJA <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("LOJA" %in% spp.vec){
+    idx <- which(spp.vec == "LOJA")[1] #due to recording error, have to add [1] so that which only gives the first index 
+    print(idx)
+    LOJA <- c(LOJA, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    LOJA <- c(LOJA, 0)
+}
+
+df$LOJA <- LOJA
+```
+
+
+
+## ELUM
+```{r}
+ELUM <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("ELUM" %in% spp.vec){
+    idx <- which(spp.vec == "ELUM")
+    ELUM <- c(ELUM, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    ELUM <- c(ELUM, 0)
+}
+df$ELUM <- ELUM
+```
+
+## ROMU
+```{r}
+ROMU <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("ROMU" %in% spp.vec){
+    idx <- which(spp.vec == "ROMU")
+    ROMU <- c(ROMU, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    ROMU <- c(ROMU, 0)
+}
+df$ROMU <- ROMU
+```
+
+## LISE
+
+```{r}
+LISE <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("LISE" %in% spp.vec){
+    idx <- which(spp.vec == "LISE")
+    LISE <- c(LISE, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    LISE <- c(LISE, 0)
+}
+
+df$LISE <- LISE
+```
+
+## CEOR
+```{r}
+CEOR <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("CEOR" %in% spp.vec){
+    idx <- which(spp.vec == "CEOR")
+    CEOR <- c(CEOR, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    CEOR <- c(CEOR, 0)
+}
+df$CEOR <- CEOR
+```
+
+## BETH
+```{r}
+BETH <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("BETH" %in% spp.vec){
+    idx <- which(spp.vec == "BETH")
+    BETH <- c(BETH, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    BETH <- c(BETH, 0)
+}
+df$BETH <- BETH
+```
+
+## CIVU
+```{r}
+CIVU <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("CIVU" %in% spp.vec){
+    idx <- which(spp.vec == "CEOR")
+    CIVU <- c(CIVU, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    CIVU <- c(CIVU, 0)
+}
+df$CIVU <- CIVU
+```
+
+## RUPH 
+```{r}
+RUPH <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("RUPH" %in% spp.vec){
+    idx <- which(spp.vec == "RUPH")
+    RUPH <- c(RUPH, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    RUPH <- c(RUPH, 0)
+}
+df$RUPH<- RUPH
+```
+
+## HEHI 
+```{r}
+HEHI <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("HEHI" %in% spp.vec){
+    idx <- which(spp.vec == "HEHI")
+    HEHI <- c(HEHI, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    HEHI <- c(HEHI, 0)
+}
+df$HEHI <- HEHI
+```
+
+## PATO
+
+```{r}
+PATO <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("PATO" %in% spp.vec){
+    idx <- which(spp.vec == "PATO")
+    PATO <- c(PATO, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    PATO <- c(PATO, 0)
+}
+df$PATO <- PATO
+```
+### make NA cover class 1
+this looks to be a recording error in the field on my part
+```{r}
+df$PATO[df$PATO %>% is.na() %>% which] <- 1 #make NA index 1
+```
+
+
+## ALJU
+```{r}
+ALJU <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("ALJU" %in% spp.vec){
+    idx <- which(spp.vec == "ALJU")
+    ALJU <- c(ALJU, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    ALJU <- c(ALJU, 0)
+}
+df$ALJU <- ALJU
+```
+
+## RUCR
+
+```{r}
+RUCR <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("RUCR" %in% spp.vec){
+    idx <- which(spp.vec == "RUCR")
+    RUCR <- c(RUCR, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    RUCR <- c(RUCR, 0)
+}
+df$RUCR <- RUCR
+```
+
+## LISI 
+
+looks like this is a recording error too. Ligustrum Sinese (chinese privet) should be abbreviated as LISI rather than LISE... I will have to combine the two columns in the dataframe
+
+```{r}
+LISI <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("LISI" %in% spp.vec){
+    idx <- which(spp.vec == "LISI")
+    LISI <- c(LISI, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    LISI <- c(LISI, 0)
+}
+df$LISI <- LISE + LISI
+```
+
+## CAAC
+
+```{r}
+CAAC <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("CAAC" %in% spp.vec){
+    idx <- which(spp.vec == "CAAC")
+    CAAC <- c(CAAC, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    CAAC <- c(CAAC, 0)
+}
+df$CAAC <- CAAC
+```
+## EUFO
+
+```{r}
+EUFO <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("EUFO" %in% spp.vec){
+    idx <- which(spp.vec == "EUFO")
+    EUFO <- c(EUFO, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    EUFO <- c(EUFO, 0)
+}
+df$EUFO <- EUFO
+```
+```{r}
+df$EUFO[df$EUFO %>% is.na() %>% which] <- 1 #make NA index 1
+
+```
+
+## ELUM
+
+```{r}
+ELUM <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("ELUM" %in% spp.vec){
+    idx <- which(spp.vec == "ELUM")
+    ELUM <- c(ELUM, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    ELUM <- c(ELUM, 0)
+}
+df$ELUM <- ELUM
+```
+
+## LOMA
+
+```{r}
+LOMA <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("LOMA" %in% spp.vec){
+    idx <- which(spp.vec == "LOMA")
+    LOMA <- c(LOMA, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    LOMA <- c(LOMA, 0)
+}
+df$LOMA <- LOMA
+```
+
+## ARHI
+
+```{r}
+ARHI <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("ARHI" %in% spp.vec){
+    idx <- which(spp.vec == "ARHI")
+    ARHI <- c(ARHI, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    ARHI <- c(ARHI, 0)
+}
+df$ARHI <- ARHI
+```
+
+## AMBR
+
+```{r}
+AMBR <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("AMBR" %in% spp.vec){
+    idx <- which(spp.vec == "AMBR")
+    AMBR <- c(AMBR, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    AMBR <- c(AMBR, 0)
+}
+df$AMBR <- AMBR
+```
+## LECU
+
+```{r}
+LECU <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("LECU" %in% spp.vec){
+    idx <- which(spp.vec == "LECU")
+    LECU <- c(LECU, 1)
+  }
+  else
+    LECU <- c(LECU, 0)
+}
+df$LECU <- LECU
+```
+
+## PUMO
+
+```{r}
+PUMO <- c()
+for (i in spp) {
+  spp.vec <- strsplit(i, split = "-") %>% unlist
+  if("PUMO" %in% spp.vec){
+    idx <- which(spp.vec == "PUMO")
+    PUMO <- c(PUMO, spp.vec[idx + 1] %>% as.numeric())
+  }
+  else
+    PUMO <- c(PUMO, 0)
+}
+df$PUMO <- PUMO
+```
+
+# Multivariate Analysis
+
+## get rid of unnecessary columns
+
+I will get rid of the same three columns for individual species as I did for overall invasion.
+```{r}
+df <- df[,-c(3,4,5)]
+df$RB <- (df$Distance_Riparian_Buffer < 50) %>% as.numeric()
+```
+
+ However, given the high dimensionality of this data, I will use all three year ranges for the converted forest instead of overall conversion like I did for overall invasion. Additionally, I will keep the previous response variable, overall_numeric, to see how each indivudal species influences and/or is influenced by overall invasion
+
+```{r}
+df <- df[,-c(1,10)] #drop Distance from Riparian Buffer and total conversion
+
+```
+
+## principal component analysis
+```{r}
+#scale function scales all variables and center on zero
+# columns selected include all geological/environmental variables + overall invasion
+pc <- princomp(scale(df[,c(1:8, 30)], center = TRUE)) 
+
+```
+
+### MIVI
+
+```{r}
+#make a vector of colors that correspond to the different species
+
+clr <- vector(length = length(df$MIVI.Length))
+  clr[which(df$MIVI == 4)] = "red" #high MIVI invasion
+  clr[which(df$MIVI == 3)] = "orange" 
+  clr[which(df$MIVI == 2)] = "yellow" 
+  clr[which(df$MIVI == 1)] = "green" 
+  clr[which(df$MIVI == 0)] = "grey" 
+
+  
+#plot it
+  
+plot(pc$scores[,1:2], type = "n", main = "level of invasion for MIVI")
+points(pc$scores[,1:2], pch = 21, bg = clr, cex = 1.5)
+legend("bottomright", legend = 4:0,
+       pch = 21, pt.bg = c("red","orange","yellow", "green", "grey"), pt.cex = 1.5)
+
+```
+
+I feel like just PC1 might explain and show this relationship even better... (mostly elevation above floodplain)
+
+```{r}
+stripchart(pc$scores[,1], 
+           main = "level of invasion for MIVI",
+           pch = 21, 
+           bg = clr,
+           method = "jitter",
+           xlab = "PC 1",
+           cex = 1.2
+           )
+legend("topleft", 
+       legend = 4:0,
+       pch = 21,
+       pt.bg = c("red","orange","yellow", "green", "grey"),
+       horiz = T)
+```
+
+
+### analyze difference in level of invasion for 2 common invaders
+
+Beginning with Microstegium Vimineum and Celastrus Orbiculatis.
+```{r}
+#make a vector of colors that correspond to the different species
+
+clr <- vector(length = length(df$MIVI.Length))
+  clr[which(df$MIVI >= 3 & df$CEOR < 3)] = "red" #high MIVI invasion
+  clr[which(df$MIVI >= 3 & df$CEOR >= 3)] = "purple" #high invasion for both
+  clr[which(df$MIVI < 3 & df$CEOR >= 3)] = "blue" # high CEOR invasion
+  clr[which(df$MIVI < 3 & df$CEOR < 3)] = "green" #low invasion for both
+  
+#plot it
+  
+plot(pc$scores[,1:2], type = "n", main = "level of invasion for MIVI and CEOR")
+points(pc$scores[,1:2], pch = 21, bg = clr, cex = 1.5)
+legend("bottomright", legend = c("high MIVI","high both","high CEOR", "low both"),
+       pch = 21, pt.bg = c("red","purple","blue", "green"), pt.cex = 1.5)
+
+```
+
+
+
+
+

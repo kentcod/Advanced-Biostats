@@ -1,0 +1,65 @@
+﻿United States COVID-19 Hospitalizations Deaths and ED Visits by State
+Date generated: Thu Sep 07 2023 16:39:10 GMT-0400 (Eastern Daylight Time)
+State/Territory,HHS Region,New hospital admissions of confirmed COVID-19 past week (total),New COVID-19 hospital admissions per 100000 population past week (total),% Change in new hospital admissions of confirmed COVID-19 from the prior week,Total hospital admissions of confirmed COVID-19 since August 1 2020,% Staffed inpatient beds occupied by patients with confirmed COVID-19 past week (average),Absolute change % staffed inpatient beds occupied by patients with confirmed COVID-19 from prior week,% Staffed ICU beds occupied by patients with confirmed COVID-19 past week (average),Absolute change % staffed ICU beds occupied by patients with confirmed COVID-19 from prior week,Percentage of deaths due to COVID-19 in past week,Percent change percentage of deaths due to COVID-19 in past week,Absolute change percentage of deaths due to COVID-19 in past week,Deaths in the Past 3 Months,Death Rate per 100000 for the Past 3 Months,Total Deaths,Total Death rate per 100000,Percent of ED visits diagnosed as COVID-19,Percent change in % of visits diagnosed as COVID-19 from last week compared to prior week,Test positivity (%) in past week,% Change in test positivity compared with prior week,Test positivity (%) in past 2 weeks,Test positivity (%) in past 4 weeks,Test volume in past week,Test volume in past 2 weeks,Test volume in past 4 weeks
+Alabama,Region 4,374,7.63,19.5,116223,3.1,0.5,2.7,0.5,0,-100,-2.5,127,2,22342,358.8,4.5%,22.3%,13.1,-0.7,13.2,11.8,4012,9502,19072
+Alaska,Region 10,21,2.87,5,9673,1.3,0.1,0.6,0.3,0,N/A,0,17,Counts 1-9,1514,226.9,1.8%,16.1%,12.9,0.7,12.3,11.1,5912,11277,21556
+American Samoa,N/A,0,0,0,0,0,0,0,0,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+Arizona,Region 9,253,3.48,18.2,153016,1.5,0.3,0.8,0.2,Counts 1-9,N/A,N/A,167,1.8,29685,324.5,1.5%,-14.3%,16.1,2.6,13.8,12.3,2799,9368,19354
+Arkansas,Region 6,207,6.86,31,66900,2.4,0.6,1.6,0.7,Counts 1-9,N/A,N/A,68,1.9,12531,337.5,2.3%,29.6%,20.8,2.4,17.8,16.3,9749,18409,30581
+California,Region 9,2593,6.56,12,603916,3.8,0.6,1.9,0.2,2.3,9.5,0.2,718,1.7,108732,245.3,2.1%,1.1%,16.1,2.6,13.8,12.3,2799,9368,19354
+Colorado,Region 8,191,3.32,31.7,96337,1.4,0.1,0.9,0.1,Counts 1-9,N/A,N/A,90,1.6,14953,246.6,1.4%,26.4%,14.2,2.3,11.7,10.2,1956,3410,6586
+Connecticut,Region 1,184,5.16,-0.5,64321,1.9,0,0.7,0.2,Counts 1-9,N/A,N/A,49,1,12284,251.7,1.7%,14.3%,10.4,0.7,9.7,9.3,3714,6983,12313
+Delaware,Region 3,36,3.7,16.1,20044,1.8,0.6,1.7,1,0,N/A,N/A,24,1.6,3453,258.3,1.1%,-17.1%,12.1,4.1,7.5,7.2,1565,3943,7107
+District of Columbia,Region 3,42,5.95,20,16280,1.9,0.2,1.1,0.6,0,N/A,N/A,Counts 1-9,Counts 1-9,1869,280.9,1.6%,36.0%,12.1,4.1,7.5,7.2,1565,3943,7107
+Federated States of Micronesia,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+Florida,Region 4,2406,11.2,15.2,565772,4.2,0.3,3.1,0,3.3,10,0.3,935,2.8,79794,248.5,4.4%,19.7%,13.1,-0.7,13.2,11.8,4012,9502,19072
+Georgia,Region 4,772,7.27,23.7,238125,3.7,0.8,2.6,0.3,Counts 1-9,N/A,N/A,193,1.8,36119,316,2.5%,7.6%,13.1,-0.7,13.2,11.8,4012,9502,19072
+Guam,N/A,7,4.15,40,6155,2.4,1.1,3.6,-0.5,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,1.2%,-23.3%,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+Hawaii,Region 9,134,9.46,-3.6,19282,5.6,0.1,2.2,0.5,Counts 1-9,N/A,N/A,63,3,1947,97.7,4.1%,0.5%,16.1,2.6,13.8,12.3,2799,9368,19354
+Idaho,Region 10,61,3.41,10.9,27507,2,0.3,0.9,0.3,0,N/A,N/A,32,1.6,5513,261.3,1.3%,8.3%,12.9,0.7,12.3,11.1,5912,11277,21556
+Illinois,Region 5,551,4.35,24.7,228065,2,0.4,1.1,0.2,Counts 1-9,N/A,N/A,156,1,40339,262.4,1.8%,19.9%,13.5,1.6,11,9.8,7488,20612,40917
+Indiana,Region 5,279,4.14,43.8,138773,1.8,0.5,0.8,0.1,0,-100,-1.6,123,1.6,25920,326.5,1.9%,31.7%,13.5,1.6,11,9.8,7488,20612,40917
+Iowa,Region 7,123,3.9,12.8,54044,1.9,0.3,0.9,0.1,Counts 1-9,N/A,N/A,42,1,11111,269.2,2.1%,16.2%,14.9,1.3,13.4,11.6,2798,5211,9472
+Kansas,Region 7,108,3.71,89.5,56800,1.5,0.5,0.9,0.4,Counts 1-9,N/A,N/A,39,1,10582,299.8,1.6%,41.7%,14.9,1.3,13.4,11.6,2798,5211,9472
+Kentucky,Region 4,222,4.97,16.8,155144,2,0.3,1.2,0.2,Counts 1-9,N/A,N/A,137,2.7,19948,371.3,2.2%,28.1%,13.1,-0.7,13.2,11.8,4012,9502,19072
+Louisiana,Region 6,340,7.31,12.6,95252,3,0.3,1.7,0.5,0,N/A,N/A,66,1.3,17640,329.8,4.0%,16.0%,20.8,2.4,17.8,16.3,9749,18409,30581
+Maine,Region 1,26,1.93,0,15051,2.3,-0.3,1.8,0.1,Counts 1-9,N/A,N/A,31,1.5,3272,163.5,1.3%,17.0%,10.4,0.7,9.7,9.3,3714,6983,12313
+Maryland,Region 3,231,3.82,11.6,95362,2.3,0.1,1.2,-0.1,Counts 1-9,N/A,N/A,125,1.7,18101,247.7,1.9%,24.0%,12.1,4.1,7.5,7.2,1565,3943,7107
+Massachusetts,Region 1,354,5.14,4.7,103125,2.3,0.3,1.9,0.1,2.3,53.3,0.8,117,1.3,20903,234.8,1.5%,2.4%,10.4,0.7,9.7,9.3,3714,6983,12313
+Michigan,Region 5,302,3.02,14,191878,1.5,0.2,0.8,0.2,1.6,-20,-0.4,183,1.5,37707,296.3,1.3%,30.9%,13.5,1.6,11,9.8,7488,20612,40917
+Minnesota,Region 5,176,3.12,51.7,78481,1.8,0.4,0.9,0.2,Counts 1-9,N/A,N/A,89,1.3,15522,224.5,N/A,N/A,13.5,1.6,11,9.8,7488,20612,40917
+Mississippi,Region 4,184,6.18,4,55562,3.2,0.1,3,0.6,Counts 1-9,N/A,N/A,105,3,14797,427.2,3.7%,0.6%,13.1,-0.7,13.2,11.8,4012,9502,19072
+Missouri,Region 7,282,4.59,16,129743,2.2,0.3,1.8,0.5,Counts 1-9,N/A,N/A,79,1,22458,289.6,N/A,N/A,14.9,1.3,13.4,11.6,2798,5211,9472
+Montana,Region 8,53,4.96,29.3,29951,1.5,0.4,0.4,0.2,Counts 1-9,N/A,N/A,Counts 1-9,Counts 1-9,3869,268.4,1.2%,7.9%,14.2,2.3,11.7,10.2,1956,3410,6586
+Nebraska,Region 7,45,2.33,2.3,31434,1.2,0.1,0.4,-0.2,0,N/A,N/A,17,Counts 1-9,5761,247.4,1.0%,16.5%,14.9,1.3,13.4,11.6,2798,5211,9472
+Nevada,Region 9,132,4.29,-7.7,64204,2.2,0.2,1.8,-0.1,0,N/A,N/A,59,1.7,11912,331.9,1.8%,4.5%,16.1,2.6,13.8,12.3,2799,9368,19354
+New Hampshire,Region 1,43,3.16,7.5,18049,1.7,-0.3,1.9,0.1,Counts 1-9,N/A,N/A,30,1.6,3286,178.7,1.3%,59.7%,10.4,0.7,9.7,9.3,3714,6983,12313
+New Jersey,Region 2,311,3.5,5.8,171707,2.1,0.1,0.8,-0.1,Counts 1-9,N/A,N/A,141,1.2,35297,301.7,1.2%,8.9%,9.6,-2.9,11.7,9.8,1566,3864,8742
+New Mexico,Region 6,38,1.81,-17.4,38137,1.3,0,1.2,0,0,N/A,N/A,35,1.4,9319,360.1,2.1%,3.9%,20.8,2.4,17.8,16.3,9749,18409,30581
+New York,Region 2,1108,5.7,4.6,373491,3.2,0.4,2,0.3,2.3,15,0.3,380,1.5,81092,313.6,1.4%,21.1%,9.6,-2.9,11.7,9.8,1566,3864,8742
+New York (excludes NYC),N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,2.2,10,0.2,272,1.8,41773,271,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+New York City,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,2.4,33.3,0.6,108,1,39319,377.3,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+North Carolina,Region 4,469,4.47,14.1,166974,2.8,0.5,2.1,0.6,2.6,36.8,0.7,257,2.1,33774,269.7,2.7%,16.7%,13.1,-0.7,13.2,11.8,4012,9502,19072
+North Dakota,Region 8,21,2.76,75,14999,1.1,0.5,0.8,0.7,0,N/A,N/A,Counts 1-9,Counts 1-9,2638,282.8,0.8%,-23.0%,14.2,2.3,11.7,10.2,1956,3410,6586
+Northern Mariana Islands,N/A,0,0,0,0,0,0,0,0,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+Ohio,Region 5,370,3.17,22.1,259637,1.3,0.2,0.9,0.1,Counts 1-9,N/A,N/A,188,1.3,49700,333.9,1.4%,29.5%,13.5,1.6,11,9.8,7488,20612,40917
+Oklahoma,Region 6,130,3.29,35.4,109546,1.8,0.4,0.9,-0.1,0,N/A,N/A,75,1.6,19509,425.4,N/A,N/A,20.8,2.4,17.8,16.3,9749,18409,30581
+Oregon,Region 10,170,4.03,10.4,45859,2.9,0.4,2.4,1,Counts 1-9,N/A,N/A,104,2,9284,176.5,2.2%,16.4%,12.9,0.7,12.3,11.1,5912,11277,21556
+Palau,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+Pennsylvania,Region 3,452,3.53,10.2,244002,1.6,0.1,1.1,0.3,2.1,50,0.7,262,1.5,52653,295,1.0%,15.1%,12.1,4.1,7.5,7.2,1565,3943,7107
+Puerto Rico,Region 2,122,3.82,-6.9,28632,2.8,0.5,1.7,0.6,3.6,-2.7,-0.1,270,4.6,6348,120.8,N/A,N/A,9.6,-2.9,11.7,9.8,1566,3864,8742
+Republic of Marshall Islands,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+Rhode Island,Region 1,34,3.21,3,13042,2.1,0.7,2.2,1.1,Counts 1-9,N/A,N/A,26,1.8,3976,268.5,1.2%,39.0%,10.4,0.7,9.7,9.3,3714,6983,12313
+South Carolina,Region 4,316,6.14,28.5,94206,2.9,0.6,1.8,0.2,2.3,91.7,1.1,136,2.1,21248,328.1,3.8%,18.3%,13.1,-0.7,13.2,11.8,4012,9502,19072
+South Dakota,Region 8,32,3.62,28,19122,1.4,0.4,0.8,0.1,0,N/A,0,Counts 1-9,Counts 1-9,3273,299.1,0.9%,1.7%,14.2,2.3,11.7,10.2,1956,3410,6586
+Tennessee,Region 4,395,5.78,31.2,129816,2.4,0.5,1.5,0.4,Counts 1-9,N/A,N/A,178,2.2,28632,345.1,3.1%,31.5%,13.1,-0.7,13.2,11.8,4012,9502,19072
+Texas,Region 6,1638,5.65,20,605206,2.6,0.4,2,0.3,1.4,7.7,0.1,383,1.4,102187,355.2,3.5%,28.4%,20.8,2.4,17.8,16.3,9749,18409,30581
+United States of America,National,17418,5.25,15.7,6289643,2.6,0.4,1.6,0.2,2,17.6,0.3,6539,1.7,1139457,285.2,2.3%,19.4%,14.9,1.4,13,11.6,41559,92579,175700
+Utah,Region 8,99,3.09,37.5,46708,1.3,0.2,0.8,0.2,Counts 1-9,N/A,N/A,34,1.3,5519,197.2,1.3%,9.7%,14.2,2.3,11.7,10.2,1956,3410,6586
+Vermont,Region 1,23,3.69,-25.8,6246,2.6,-0.3,1.5,-0.2,Counts 1-9,N/A,N/A,27,3.1,1016,116.6,1.1%,-6.7%,10.4,0.7,9.7,9.3,3714,6983,12313
+Virgin Islands,Region 2,1,0.94,-80,617,1.2,0.1,1.7,1.7,Data not available,N/A,N/A,Data not available,Data not available,Data not available,Data not available,N/A,N/A,9.6,-2.9,11.7,9.8,1566,3864,8742
+Virginia,Region 3,360,4.22,19.6,120585,2.2,0.5,1.9,0.3,Counts 1-9,N/A,N/A,133,1.3,23554,234.6,2.4%,27.7%,12.1,4.1,7.5,7.2,1565,3943,7107
+Washington,Region 10,285,3.74,22.8,76186,2.9,0.1,1.7,-0.4,2.7,28.6,0.6,150,1.8,15010,172.9,2.3%,11.2%,12.9,0.7,12.3,11.1,5912,11277,21556
+West Virginia,Region 3,87,4.85,3.6,42115,2,0.4,2,0.9,Counts 1-9,N/A,N/A,28,1.1,8631,347.1,1.5%,23.0%,12.1,4.1,7.5,7.2,1565,3943,7107
+Wisconsin,Region 5,195,3.35,25,126008,1.4,0.1,0.7,-0.3,Counts 1-9,N/A,N/A,83,1.1,17142,231.7,1.0%,23.3%,13.5,1.6,11,9.8,7488,20612,40917
+Wyoming,Region 8,30,5.18,36.4,11362,1.8,0.4,1.3,1.2,0,N/A,N/A,Counts 1-9,Counts 1-9,2139,303.5,1.4%,0.1%,14.2,2.3,11.7,10.2,1956,3410,6586

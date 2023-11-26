@@ -1,0 +1,147 @@
+---
+title: "Lab-6"
+author: "Kent Codding"
+date: "2023-10-24"
+output: word_document
+---
+
+# Read in data
+
+```{r}
+setwd("C:/Users/Kent Codding/Desktop/Adv Biostat/Lab 6")
+df <- read.csv("wing_worm_data.csv")
+df <- cbind(P_alcicornis = df$P_alcicornis, CL = df$CL)
+df <- data.frame(df)
+
+plot(P_alcicornis ~ CL, data = df) 
+```
+
+# Load dependencies
+
+```{r}
+library(MASS)
+library(gam)
+library(car)
+```
+
+# Step 1
+
+```{r}
+mod.p <- glm(P_alcicornis ~
+                  CL, 
+                data = df, family = "poisson")
+summary(mod.p)
+```
+
+residual deviance divided by degrees of freedom is far greater than 1, so negative binomial may be better
+
+```{r}
+mod.nb <- glm.nb(df$P_alcicornis ~ df$CL)
+summary(mod.nb)
+```
+
+residual deviance divided by degrees of freedom much closer to 1, so negative binomial is a better choice. 
+
+# Step 2
+
+## Plot of raw data
+
+```{r}
+#show best GLM (negative binomial) over raw data by subsetting 3 prediction lines over the range of CL
+df$P_alcicornis_pred <- predict(mod.nb, df)
+
+plot(P_alcicornis ~ CL, 
+     data = df,
+     ylim = c(0,100))
+lines(P_alcicornis_pred ~ CL, data = subset(df, CL < 20,
+      lwd = 2), col = "green")
+lines(P_alcicornis_pred ~ CL, data = subset(df, (CL > 20 & CL < 40),
+      lwd = 2), col = "green")
+lines(P_alcicornis_pred ~ CL, data = subset(df, (CL > 40),
+      lwd = 2), col = "green")
+```
+
+```{r}
+avPlots(mod.nb) #show best GLM (negative binomial) over raw data
+```
+
+## plot of GLM residuals
+
+```{r}
+residuals.nb <- residuals.glm(mod.nb) # create object for deviance residuals
+plot(residuals.nb ~ df$CL)
+abline(h = 0, col = "firebrick")
+```
+
+Yes, the residuals show some patterns, and a non-shotgun blast looking plot of the deviance residuals suggests that the data violate the assumption of nonindependence. Thus, we may want to use a nonlinear model for these data.
+
+# Step 3
+
+## fit 3 negative binomial GAMS
+
+```{r}
+mod.gam1 <-  gam::gam(df$P_alcicornis ~ lo(df$CL, span = .1), family = "gaussian")
+summary(mod.gam1)
+
+#NOTE: "nb" and negative.binomial(theta = 2) did not work and yielded odd results for predicted values respectively, so I stuck with family = gaussian 
+```
+
+```{r}
+mod.gam2 <-  gam::gam(df$P_alcicornis ~ lo(df$CL, span = .5), family = "gaussian") 
+summary(mod.gam2)
+```
+
+```{r}
+mod.gam3 <-  gam::gam(df$P_alcicornis ~ lo(df$CL, span = 1), family = "gaussian") 
+summary(mod.gam3)
+```
+
+## Plot each GAM model
+
+```{r}
+plot(df$P_alcicornis ~ df$CL,
+     main = "GAM Span 0.1")
+lines(predict(mod.gam1), col = "red", lwd = 3)
+```
+
+```{r}
+plot(df$P_alcicornis ~ df$CL,
+     main = "GAM Span 0.5")
+lines(predict(mod.gam2), col = "red", lwd = 3)
+```
+
+```{r}
+plot(df$P_alcicornis ~ df$CL,
+     main = "GAM Span 1.0")
+lines(predict(mod.gam3), col = "red", lwd = 3)
+```
+
+the highest value for Span, 1.0, seems to be the most appropriate because the lower values for Span overfit the model to the data and are sensitive to noise within the data.
+
+##plot residuals from best GAM
+
+```{r}
+
+plot(residuals(mod.gam3) ~ df$CL)
+abline(h = 0, col = "firebrick")
+```
+
+To be honest, this chart looks worse because the trend is more clear, suggesting nonindependence. However, I bet with an apt value for theta with family = nb instead of Gaussian, the GAM residuals would look more independent.
+
+# Step 4
+```{r}
+library(mgcv)
+mod.gam4 <- mgcv::gam(P_alcicornis ~ s(CL),  data = df)
+summary(mod.gam4)
+```
+The GAM shows the same significance value and a low R-squared value, so the summary suggests that the GLM may have been just as good. The pseudo R-squared calculated from the negative binomial GLM is around the same as the R-squared from this GAM.
+
+```{r}
+pred <- predict(mod.gam4, se = T)
+plot(df$P_alcicornis ~ df$CL,
+     col = rgb(0, 0, 1, alpha = 0.4))
+lines(df$CL[order(df$CL)], pred$fit[order(df$CL)], col = "forestgreen", lwd = 3)
+lines(df$CL[order(df$CL)], pred$fit[order(df$CL)] + 1.96*pred$se.fit[order(df$CL)], lwd = 3, lty = 2, col = "firebrick4")
+lines(df$CL[order(df$CL)], pred$fit[order(df$CL)] - 1.96*pred$se.fit[order(df$CL)], lwd = 3, lty = 2, col = "firebrick4")
+```
+This model looks much less sensitive to noise. Overall, I would have come to a far different conclusion using the mgcv package; this GAM prediction shows support of the hypothesis. There is a clear increase in wing worms as age increases until Carapace length of about 30-40. At this point, the number of wing worms slightly decreases, suggesting that the wing worms become out competed towards the end of the crayfish's life cycle.
