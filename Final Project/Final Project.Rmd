@@ -30,6 +30,9 @@ In the growing season of 2023, the data were collected over about 50 hours and 5
 In this portion of the study, the response variable is the numeric level of plant invasion (2-5 in this case because no polygons had less than 5% invasion). The potential predictor variables include distance from farmland, distance from riparian buffer, distance from floodplain, elevation from floodplain, percentage of evergreen forest, and percentage of converted farmland for each of the three previously stated year ranges.
 
 ## Method Choice Reasoning
+The response variable for the following models is an ordinal categorical variable. Thus, the error distribution is not expected to be normal, so I attempted to use generalized linear mixed models. However, given the small sample size of 56, if GLMMs cannot converge, I will compare a poisson and negative binomial GLMM to determine if the data is overdispersed. 
+
+If the GLMMs can handle a smaller sample size, I suspect that treating riparian buffer as a random effect can account for unwanted (from a modeling perspective...) lower levels of invasion closer to the floodplain. In the case of the GLM, I will treat riparian buffer as an interaction term with distance from floodplain to account for the lack of signal when riparian buffer is present versus the negative correlation between distance from floodplain and overall plant invasion in the absence of a riparian buffer.
 
 # Analysis
 
@@ -38,6 +41,7 @@ In this portion of the study, the response variable is the numeric level of plan
 library(magrittr)
 library(glmmTMB) %>% suppressWarnings()
 library(MASS)
+library(vegan)
 ```
 
 ## load data
@@ -47,9 +51,30 @@ Note: this data has previously been loaded and cleaned in python prior to the cr
 ```{r}
 df <- read.csv("surveyed_data.csv")
 df <- df[,-c(3,4,5)]
-df$RB <- (df$Distance_Riparian_Buffer < 50) %>% as.numeric()
-df <- df[,-1] #drop Distance from Riparian Buffer
+#df$RB <- (df$Distance_Riparian_Buffer < 50) %>% as.numeric()
+#df <- df[,-1] #drop Distance from Riparian Buffer
 ```
+Note: after further examining the choice for random slope and random intercept of the GLMMs, Professor skelton and I determined that it would be better in this case to keep more levels of a categorical variable rather than my original idea, which was a binary representation of within riparian buffer zone versus out of riparian buffer zone. Since the polygons were drawn with respect to distance from floodplain, there are multiple levels of distance from riparian buffer (as the distance in ArcGIS pro was calculated based on distance from stream). 
+
+Thus, each polygon will be assigned to one of four different levels with 0 representing polygons along the stream (most affected by riparian buffer), 1 representing polygons within 50 meters of the stream, 2 representing polygons within 150 meters of the stream, and finally polygons farther than 150 meters from the stream (likely unaffected by the riparian buffer)
+
+```{r}
+RB <- c() #create empty vector to append to
+for (i in df$Distance_Riparian_Buffer){
+  if(i == 0)
+    RB <- c(RB, 0)
+  if(i > 0 & i < 50)
+    RB <- c(RB, 1)
+  if(i > 50 & i < 150)
+    RB <- c(RB, 2)
+  if(i > 150)
+    RB <- c(RB, 3)
+}
+df$RB <- RB
+df <- df[,-1] #drop Distance from Riparian Buffer
+
+```
+
 
 ## Data Preparation
 Clearly, there is multicollinearity between the individual converted forest percentages and the overall converted forest percentage (a combination of all three year ranges). To simplify analyses and decrease the number of zeros within the data, I will remove all three individual converted forest percentages and only use the overall converted forest percentage.
@@ -67,7 +92,7 @@ df <- df[,-c(4,5,6)]
 The response variable is not technically count data as level of invasion is an ordinal categorical variable, so I will fit a negative binomial glm. Then, I fit a glmm with a random slope and intercept for riparian buffer presence. All predictor variables will be included for each model with the interaction between distance from floodplain and RB.
 
 ```{r}
-M1 <- glm.nb(overall_numeric ~ Distance_Farmland +
+Mnb <- glm.nb(overall_numeric ~ Distance_Farmland +
           EAF +
           Dist_Floodplain +
           evergreen_forest +
@@ -77,62 +102,134 @@ M1 <- glm.nb(overall_numeric ~ Distance_Farmland +
           data = df)
 M2 <- glmmTMB(overall_numeric ~ Distance_Farmland +
           EAF +
-          Dist_Floodplain +
           evergreen_forest +
-          total_conversion +
-          RB +
           (1|RB),
           data = df,
           family = nbinom2)
 M3 <- glmmTMB(overall_numeric ~ Distance_Farmland +
           EAF +
-          Dist_Floodplain +
           evergreen_forest +
-          total_conversion +
-          RB +
           (Dist_Floodplain|RB),
           data = df,
           family = nbinom2)
 ```
-```{r}
-AIC(M1, M2, M3)
-```
-
-
-## Model Selection
+Still running into a model convergence problem for the GLMM. Unfortunately... or fortunately? A GLMM may not be an option for this data with only 56 obeservations. Let's try a Poisson versus a negative binomial distribution variance structure instead.
 
 ```{r}
-summary(M1)
-```
-
-
-```{r}
-drop1(M1, test = "Chisq")
-```
-The interaction between distance_floodplain and riparian buffer has the lowest likelihood, so remove the interaction
-
-```{r}
-M1.1 <- glm.nb(overall_numeric ~ Distance_Farmland +
+Mpois <- glm(overall_numeric ~ Distance_Farmland +
           EAF +
           Dist_Floodplain +
           evergreen_forest +
           total_conversion +
-          RB,
-          data = df)
-summary(M1.1)
+          RB +
+          Dist_Floodplain * RB,
+          data = df,
+          family = "poisson")
+```
+
+```{r}
+AIC(Mnb, Mpois)
+```
+Interesting! I did not expect the poisson model to be better because I was not working with count data. However, AIC suggests that a poisson variance structure may be better and that overdispersion is not present in the data.
+
+## Model Selection
+
+```{r}
+summary(Mpois)
 ```
 
 
+```{r}
+drop1(Mpois, test = "Chisq")
+```
+The interaction between distance_floodplain and riparian buffer has the lowest likelihood, so remove the interaction
+
+```{r}
+M2 <- update(Mpois, .~. -(Dist_Floodplain:RB))
+summary(M2)
+```
+
+```{r}
+drop1(M2, test = "Chisq")
+```
+
+Distance_Floodplain does not improve the model based on the chisq test, so refit model without Dist_Floodplain. 
+```{r}
+M3 <- update(M2, .~. -Dist_Floodplain)
+summary(M3)
+```
+```{r}
+drop1(M3, test = "Chisq")
+```
+Distance_Farmland has the lowest likelihood, so remove it
+```{r}
+M4 <- update(M3, .~. -Distance_Farmland)
+summary(M4)
+```
+```{r}
+drop1(M4, test = "Chisq")
+```
+```{r}
+M5 <- update(M4, .~. -RB)
+summary(M5)
+```
+
+```{r}
+M6 <- glm(overall_numeric ~ EAF + evergreen_forest + total_conversion + EAF * RB, 
+    family = "poisson", data = df)
+AIC(M5, M6)
+```
+test if an interaction between Elevation Above Floodplain and Riparian Buffer would improve the model. The AIC remains lower for the model without the interaction term. 
+
+```{r}
+drop1(M5, test = "Chisq")
+```
+remove EAF
+```{r}
+M7 <- update(M5, .~. -EAF)
+summary(M7)
+```
+```{r}
+drop1(M7, test = "Chisq")
+```
+remove total_conversion
+```{r}
+M8 <- update(M7, .~. -total_conversion)
+summary(M8)
+```
+
+Unfortunately, after removing all insignificant variables using the drop1 method, all variables remain insigificant. I hypothesize that this is due to a small sample size as contemporary literature suggests that a strong and linear signal exists between variables like elevation above floodplain and overall plant invasion. Further, confounders like the Riparian Buffer (good for conservation but bad for my model) may have skewed the signal between distance/ elevation from floodplain and overall plant invasion. 
 
 
-
-
-
-
+Now, I will attempt to examine another dimension of this resarch project (no pun intended).
 
 #Part II: Individual Spp
 
-Note: for my project pitch, I was not intending to include the collected data for individual species... but then the following Tuesday we discussed multivariate analysis, which I thought could be interesting to apply to this highly dimensional data which includes cover class data for 21 individual species. The cover class for each individual species has a different scale: 1: < 1% of cover in polygon, 2: 1-5%, 3: 5-20%, 4: > 20%. 
+Note: for my project pitch, I was not intending to include the collected data for individual species from the same research site... but then the following Tuesday we discussed multivariate analysis, which I thought could be interesting to apply to this highly dimensional data.
+
+## Feasibility
+
+This data includes cover class data for 21 individual species. The cover class for each individual species has a different scale than overall invasion: 1: < 1% of cover in polygon, 2: 1-5%, 3: 5-20%, 4: > 20%. 
+
+## Scope 
+
+This analysis can determine similarities and differences between invasive plant communities with the presence or absence of a riparian buffer.
+
+Additionally, analysis could determine any "indicator" species that are useful in conservation to determine "good" areas (less invasion) or "bad" areas (more invasion). Many studies have pointed to a few species in Virginia, namely Microstegium Vimineum, as indicator species for overall invasion. It would be interesting to determine if my data supports or contradicts this claim.
+
+## Data collection
+
+The individual invasive species data were collected in the same 56 polygons previously mentioned, and invasive species were identified based on the most recent Virginia Invasive Plant List published by the Virginia DCR and were categorized by percent cover within each polygon. 
+
+## Justification of method choice
+
+As discussed in class, NMDS is great for determining relationships between species/features in ecological studies as it avoids the "double zero" problem (very much present in this data) unlike correlational analyses like PCA. Further, an example discussed in class used NMDS to compare bird communities in brushy hardwood versus open pineland.
+
+Further, I may separately use PCA to determine any differences between geological predictors of invasion mentioned in Part I and dominant invaders like MIVI and CEOR as empirically, the presence of these invaders changed drastically in the field when walking away from farmland and streams.
+
+## Crucial Variables
+
+Multiple response variables (all 21 invaders observed) are of interest to determine any (invasive only) community-wide differences, and potential predictor variables of interest include Riparian Buffer and overall plant invasion.  
 
 ## re-read data
 ```{r}
@@ -523,6 +620,94 @@ df <- df[,-c(1,10)] #drop Distance from Riparian Buffer and total conversion
 
 ```
 
+## non-metric multi-dimensional scaling
+
+```{r}
+# for nmds, only use species as features
+nmdf <- df[-c(1:8, 30)] 
+```
+
+### Scree plot
+```{r}
+#Use a for loop to try all values of k 1-8
+#save stress values in vector called "strs" to make a "scree plot"
+strs <- c()
+
+for(i in 1:8){
+  nm.i <- metaMDS(nmdf, k = i)
+  strs[i] <- nm.i$stress
+}
+
+plot(1:8, strs, type = 'l', lwd = 2, 
+     ylab = "stress", xlab = "number of dimensions",
+     main = "Invasive Spp scree plot")
+```
+
+after looking at scree plot, it seems that the "elbow" is around 2 or 3. For simplicity of analysis and visualization, I'll stick with the default of 2.
+
+### Visualize NMDS
+
+```{r}
+nm <- metaMDS(nmdf, noshare = T) #since my features are species, many of the default arguments in the metaMDS function (Bray-Curtis, k = 2, autotransform)
+```
+#### Riparian Buffer Communities
+```{r}
+# create vector of colors
+clr <- vector(length = nrow(nmdf))
+  clr[which(df$RB == 1)] = "purple" #polygons by RB
+  clr[which(df$RB == 0)] = "yellow" #polygons away from RB
+#plot site scores
+plot(nm$points, pch = 21, bg = clr, 
+cex = 1.5, main = "NMDS of Invasive Species Data, k = 2",
+ylab = "NMDS2", xlab = "NMDS1",
+ylim = c(-1,1), xlim = c(-1,1))
+
+#add quadrant lines  
+abline(h = 0, lty = 3, lwd = 2, col = "grey85")
+abline(v = 0, lty = 3, lwd = 2, col = "grey85")
+
+#add text for species scores
+text(nm$species, lab = names(nmdf) )
+
+legend("bottomright", legend = c("Riparian Buffer", "Not within Riparian Buffer"),
+       pch = 21, pt.bg = c("purple","yellow"))
+
+#add stress value 
+text(.8, 1, 
+     lab = paste("stress =", round(nm$stress,2), sep = " "), 
+     cex = 1.5)
+```
+
+#### Indicator Species?
+
+```{r}
+# create vector of colors for each level of overall invasion
+clr <- vector(length = nrow(nmdf))
+  clr[which(df$overall_numeric == 2)] = "green"
+  clr[which(df$overall_numeric == 3)] = "yellow"
+  clr[which(df$overall_numeric == 4)] = "orange"
+  clr[which(df$overall_numeric == 5)] = "red"
+#plot site scores
+plot(nm$points, pch = 21, bg = clr, 
+cex = 1.5, main = "NMDS of Invasive Species Data, k = 2",
+ylab = "NMDS2", xlab = "NMDS1",
+ylim = c(-1,1), xlim = c(-1,1))
+
+#add quadrant lines  
+abline(h = 0, lty = 3, lwd = 2, col = "grey85")
+abline(v = 0, lty = 3, lwd = 2, col = "grey85")
+
+#add text for species scores
+text(nm$species, lab = names(nmdf) )
+
+legend("bottomright", legend = 5:2,
+       pch = 21, pt.bg = c("red","orange","yellow", "green"))
+```
+
+
+
+
+
 ## principal component analysis
 ```{r}
 #scale function scales all variables and center on zero
@@ -593,6 +778,27 @@ legend("bottomright", legend = c("high MIVI","high both","high CEOR", "low both"
 
 ```
 
+### CEOR
+
+```{r}
+#make a vector of colors that correspond to the different species
+
+clr <- vector(length = length(df$MIVI.Length))
+  clr[which(df$CEOR == 4)] = "red" #high MIVI invasion
+  clr[which(df$CEOR == 3)] = "orange" 
+  clr[which(df$CEOR == 2)] = "yellow" 
+  clr[which(df$CEOR == 1)] = "green" 
+  clr[which(df$CEOR == 0)] = "grey" 
+
+  
+#plot it
+  
+plot(pc$scores[,1:2], type = "n", main = "level of invasion for CEOR")
+points(pc$scores[,1:2], pch = 21, bg = clr, cex = 1.5)
+legend("bottomright", legend = 4:0,
+       pch = 21, pt.bg = c("red","orange","yellow", "green", "grey"), pt.cex = 1.5)
+
+```
 
 
 
