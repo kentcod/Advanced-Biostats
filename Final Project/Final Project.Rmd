@@ -1,15 +1,15 @@
 ---
-title: "Predicting Invasion"
+title: "Predicting Plant Invasion"
 author: "Kent Codding"
 date: "2023-11-14"
-output: html_document
+output: word_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Overview
+# Overview for Part I
 
 In the following code, I will examine what landscape features, if any, influence overall plant invasion. I hypothesize that numerous landscape features will have a significant impact on invasion as invasive species are known to prefer low stress and highly nutrient available environments like riparian environments or eutrophic environments near farmland. Overall, the goal of the subsequent analyses is to predict plant invasion based on any significant features. 
 
@@ -39,9 +39,10 @@ If the GLMMs can handle a smaller sample size, I suspect that treating riparian 
 ## load dependencies
 ```{r}
 library(magrittr)
-library(glmmTMB) %>% suppressWarnings()
+library(glmmTMB) 
 library(MASS)
 library(vegan)
+library(mvabund)
 ```
 
 ## load data
@@ -89,7 +90,9 @@ df <- df[,-c(4,5,6)]
 
 ### compare variance structures
 
-The response variable is not technically count data as level of invasion is an ordinal categorical variable, so I will fit a negative binomial glm. Then, I fit a glmm with a random slope and intercept for riparian buffer presence. All predictor variables will be included for each model with the interaction between distance from floodplain and RB.
+The response variable is not technically count data as level of invasion is an ordinal categorical variable, so I will fit a negative binomial glm. Then, I fit a glmm with a random slope and intercept for riparian buffer presence. All predictor variables will be included for each GLM with the interaction between distance from floodplain and RB. For GLMM, I removed Dist_Floodplain for the random intercept as some collinearity exists between Distance from floodplain and elevation above floodplain (EAF) to give the GLMM a better change to converge.
+
+
 
 ```{r}
 Mnb <- glm.nb(overall_numeric ~ Distance_Farmland +
@@ -131,6 +134,12 @@ Mpois <- glm(overall_numeric ~ Distance_Farmland +
 AIC(Mnb, Mpois)
 ```
 Interesting! I did not expect the poisson model to be better because I was not working with count data. However, AIC suggests that a poisson variance structure may be better and that overdispersion is not present in the data.
+
+```{r}
+Mpois$deviance/Mpois$df.residual
+```
+
+Far below 1.5, which shows again that overdispersion is not present.
 
 ## Model Selection
 
@@ -198,14 +207,16 @@ M8 <- update(M7, .~. -total_conversion)
 summary(M8)
 ```
 
-Unfortunately, after removing all insignificant variables using the drop1 method, all variables remain insigificant. I hypothesize that this is due to a small sample size as contemporary literature suggests that a strong and linear signal exists between variables like elevation above floodplain and overall plant invasion. Further, confounders like the Riparian Buffer (good for conservation but bad for my model) may have skewed the signal between distance/ elevation from floodplain and overall plant invasion. 
+### Interpretation
+
+Unfortunately, after removing all insignificant variables using the drop1 method, all variables remain insignificant. The hypothesis, that a GLMM or GLM could predict overall plant invasion based on continuous geological features like elevation above floodplain, was not supported. I hypothesize that this is due to a small sample size as contemporary literature suggests that a strong and linear signal exists between variables like elevation above floodplain and overall plant invasion. Further, confounders like the Riparian Buffer (good for conservation but bad for my model) may have skewed the signal between distance/ elevation from floodplain and overall plant invasion. 
 
 
-Now, I will attempt to examine another dimension of this resarch project (no pun intended).
+Now, I will attempt to examine another dimension of this research project (no pun intended).
 
-#Part II: Individual Spp
+#Part II: Individual Species Abundances
 
-Note: for my project pitch, I was not intending to include the collected data for individual species from the same research site... but then the following Tuesday we discussed multivariate analysis, which I thought could be interesting to apply to this highly dimensional data.
+Note: for my project pitch, I was not intending to include the collected data for individual species from the same research site... but then the following Tuesday we discussed multivariate analysis, which I thought could be interesting to apply to this high dimensional data.
 
 ## Feasibility
 
@@ -244,7 +255,7 @@ for(i in df$individual){
 
 # Tedious data cleaning 
 
-Here, I loop through each row of the individual column of the dataframe (in the form of the created list) and extract information on the indivudal species listed there. I did this for each invasive species encountered in the data.
+Here, I loop through each row of the individual column of the dataframe (in the form of the created list) and extract information on the individual species listed there. I did this for each invasive species encountered in the data.
 
 ## MIVI
 ```{r}
@@ -268,7 +279,6 @@ for (i in spp) {
   spp.vec <- strsplit(i, split = "-") %>% unlist
   if("LOJA" %in% spp.vec){
     idx <- which(spp.vec == "LOJA")[1] #due to recording error, have to add [1] so that which only gives the first index 
-    print(idx)
     LOJA <- c(LOJA, spp.vec[idx + 1] %>% as.numeric())
   }
   else
@@ -640,7 +650,7 @@ for(i in 1:8){
 
 plot(1:8, strs, type = 'l', lwd = 2, 
      ylab = "stress", xlab = "number of dimensions",
-     main = "Invasive Spp scree plot")
+     main = "Invasive Species scree plot")
 ```
 
 after looking at scree plot, it seems that the "elbow" is around 2 or 3. For simplicity of analysis and visualization, I'll stick with the default of 2.
@@ -648,10 +658,10 @@ after looking at scree plot, it seems that the "elbow" is around 2 or 3. For sim
 ### Visualize NMDS
 
 ```{r}
-nm <- metaMDS(nmdf, noshare = T) #since my features are species, many of the default arguments in the metaMDS function (Bray-Curtis, k = 2, autotransform)
+nm <- metaMDS(nmdf, noshare = F) #since my features are species, many of the default arguments in the metaMDS function (Bray-Curtis, k = 2, autotransform) are appropriate
 ```
 #### Riparian Buffer Communities
-```{r}
+```{r, fig.height=6, fig.width = 6}
 # create vector of colors
 clr <- vector(length = nrow(nmdf))
   clr[which(df$RB == 1)] = "purple" #polygons by RB
@@ -675,8 +685,77 @@ legend("bottomright", legend = c("Riparian Buffer", "Not within Riparian Buffer"
 #add stress value 
 text(.8, 1, 
      lab = paste("stress =", round(nm$stress,2), sep = " "), 
-     cex = 1.5)
+     cex = 1)
+
 ```
+
+##### permanova test
+a permutational multivariate analysis of variance
+
+```{r}
+adonis2(nmdf ~ df$RB, permutations = 999)
+```
+the test rejects the null hypothesis that invasive plant communities are the same between areas affected and unaffected by the Riparian Buffer.
+
+##### plot NMDS with ordiellipse
+
+```{r, fig.height=10, fig.width = 6}
+#plot site scores
+par(mar = c(5, 4, 4, 5), mfrow = c(2,1), cex = .75)
+
+plot(nm$points, pch = 21, bg = clr, 
+cex = 1.5, main = "NMDS with ellipse of standard deviation",
+ylab = "NMDS2", xlab = "NMDS1",
+ylim = c(-1,1), xlim = c(-1,1))
+
+#add quadrant lines  
+abline(h = 0, lty = 3, lwd = 2, col = "grey85")
+abline(v = 0, lty = 3, lwd = 2, col = "grey85")
+
+#add text for species scores
+text(nm$species, lab = names(nmdf) )
+
+legend("bottomright", legend = c("Riparian Buffer", "Not within Riparian Buffer"),
+       pch = 21, pt.bg = c("purple","yellow"))
+
+#add stress value 
+text(.8, 1, 
+     lab = paste("stress =", round(nm$stress,2), sep = " "), 
+     cex = 1)
+ordiellipse(nm, groups = df$RB, 
+            kind = "sd", #draw standard deviations of points 
+            conf = 0.95,
+            draw = "polygon",
+            col = c("yellow", "purple"))
+
+#plot again with se
+plot(nm$points, pch = 21, bg = clr, 
+cex = 1.5, main = "NMDS with ellipse of standard error",
+ylab = "NMDS2", xlab = "NMDS1",
+ylim = c(-1,1), xlim = c(-1,1))
+
+#add quadrant lines  
+abline(h = 0, lty = 3, lwd = 2, col = "grey85")
+abline(v = 0, lty = 3, lwd = 2, col = "grey85")
+
+#add text for species scores
+text(nm$species, lab = names(nmdf) )
+
+legend("bottomright", legend = c("Riparian Buffer", "Not within Riparian Buffer"),
+       pch = 21, pt.bg = c("purple","yellow"))
+
+#add stress value 
+text(.8, 1, 
+     lab = paste("stress =", round(nm$stress,2), sep = " "), 
+     cex = 1)
+
+ordiellipse(nm, groups = df$RB, 
+            kind = "se", #draw standard error of points 
+            conf = 0.95,
+            draw = "polygon",
+            col = c("yellow", "purple"))
+```
+
 
 #### Indicator Species?
 
@@ -703,12 +782,29 @@ text(nm$species, lab = names(nmdf) )
 legend("bottomright", legend = 5:2,
        pch = 21, pt.bg = c("red","orange","yellow", "green"))
 ```
+##### > 5 occurences
+```{r}
+#plot site scores
+plot(nm$points, pch = 21, bg = clr, 
+cex = 1.5, main = "NMDS of Invasive Species Data, k = 2",
+ylab = "NMDS2", xlab = "NMDS1",
+ylim = c(-1,1), xlim = c(-1,1))
 
+#add quadrant lines  
+abline(h = 0, lty = 3, lwd = 2, col = "grey85")
+abline(v = 0, lty = 3, lwd = 2, col = "grey85")
 
+#add text
+spp5 <- names(nmdf)[colSums(nmdf) > 5] #get names of species w/ greater than 5 occurences
+text(nm$species[spp5,], lab = spp5)
+
+```
 
 
 
 ## principal component analysis
+
+check how PCs 1 and 2 for the predictor variables for Question 1 explain the most prevalent individual invaders. 
 ```{r}
 #scale function scales all variables and center on zero
 # columns selected include all geological/environmental variables + overall invasion
@@ -759,7 +855,7 @@ legend("topleft",
 
 ### analyze difference in level of invasion for 2 common invaders
 
-Beginning with Microstegium Vimineum and Celastrus Orbiculatis.
+Microstegium Vimineum and Celastrus Orbiculatis.
 ```{r}
 #make a vector of colors that correspond to the different species
 
@@ -801,5 +897,17 @@ legend("bottomright", legend = 4:0,
 ```
 
 
+# Conclusion 
+
+For question 1, my hypothesis was not supported as a GLM or GLMM could not viably predict overall invasion better than a neural network multilayer perceptron classifier. I belive that this is because the dataset was not big enough for GLMM (could not converge). I originally hypothesized that GLMM may be able to predict the random effects of the Riparian Buffer more accurately than the neural network, so a successful GLMM could have yielded a better model.
+GLM also failed to find any significant predictors even with an interaction term for riparian buffer and the evident trend of distance from floodplain (heavily used in the machine learning model). This could be due to the small sample size and the difficulty of dealing with confounders like the Riparian Buffer.
 
 
+For question 2, my hypothesis was supported as there is a difference between invasive plant communities for areas affected by or unaffected by the Riparian Buffer at Highland. Given the empirical data (in the form of maps), it is evident that the riparian buffer reduces overall invasion as most areas by the Massey Creek Riparian Buffer are yellow instead of orange or red like most areas by Houchins creek or upstream of the Massey Creek Riparian Buffer.
+
+## Caveats
+upland species were also included, so some difference could be explained by habitat difference rather than riparian buffer presence. However, given that the riparian buffer negatively correlates with overall invasion, it makes sense biologically that species like CEOR (Celastrus Orbiculatis) and MIVI (Microstegium Vimineum), which are both known indicators for overall invasion in Virginia, were found less in Riparian Buffer-affected areas.
+
+## Future questions
+
+regarding the riparian buffer (RB), more questions like individual species differences between RB-affected and non-RB-affected habitats. Further, a study with a larger sample size may be able to analyze indicator species analysis for each habitat. Evidently, effective riparian buffers remove invaders, so one would expect more invasive species to identify with the non-RB-affected habitat. However, some invasive species compete with each other for niches unoccupied by natives. Thus, if one invader like ARHI (joint head grass) hypothetically competes with MIVI and MIVI is greatly affected by riparian buffers, could joint head grass be more prevalent in RB-affected habitats and thus be an indicator for RB-affected habitats? This would be interesting to conservation ecology as tests like these could deem riparian buffers as effective for some species but uneffective for others. With limited conservation resources, if a stakeholder is dealing with a species like ARHI that does well in native riparian buffers, they may want to spend their money on a different conservation solution!
