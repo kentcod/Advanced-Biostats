@@ -5,4 +5,4 @@ This repository includes code from BIOL 404 Advanced Biostats taught by Professo
 Each folder represents Lab topics in order that include datasets and examples provided by Professor Skelton to assist with the lab assignment. 
 Each folder also contains my completed lab assignment as an R markdown file and a knitted word document.
 
-Additionally, the Final Project folder contains my own dataset from Highland along with my final project, which analyzed multivariate invasive species distribution, expected to be complete by December 12. 
+Additionally, the Final Project folder contains my own dataset from Highland along with my final project, which analyzed multivariate invasive species distribution and most notably the invasive community differences between areas within the riparian buffer zone and outside of the riparian buffer zone.
